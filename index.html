@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Family Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap" rel="stylesheet">
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+<style>
+/* === TOKENS === */
+:root,[data-theme=light]{--bg:#f7f6f2;--surface:#f9f8f5;--surface2:#fbfbf9;--border:#d4d1ca;--text:#28251d;--muted:#7a7974;--faint:#bab9b4;--primary:#01696f;--primary-h:#0c4e54;--shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 12px rgba(0,0,0,.1);--r:0.5rem;--font:'Inter',sans-serif}
+[data-theme=dark]{--bg:#171614;--surface:#1c1b19;--surface2:#201f1d;--border:#393836;--text:#cdccca;--muted:#797876;--faint:#5a5957;--primary:#4f98a3;--primary-h:#227f8b;--shadow-sm:0 1px 3px rgba(0,0,0,.3);--shadow-md:0 4px 16px rgba(0,0,0,.4)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-family:var(--font);font-size:16px;background:var(--bg);color:var(--text);height:100%}
+body{min-height:100vh;display:flex;flex-direction:column}
+button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
+/* === NAV === */
+nav{display:flex;align-items:center;gap:1rem;padding:.75rem 1.5rem;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;box-shadow:var(--shadow-sm)}
+.nav-logo{display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:1.1rem;color:var(--primary)}
+.nav-logo svg{flex-shrink:0}
+.nav-tabs{display:flex;gap:.25rem;margin-left:auto}
+.nav-tab{padding:.4rem .9rem;border-radius:2rem;font-size:.85rem;font-weight:500;color:var(--muted);transition:.18s}
+.nav-tab:hover{background:var(--surface2);color:var(--text)}
+.nav-tab.active{background:var(--primary);color:#fff}
+.nav-actions{display:flex;gap:.5rem;margin-left:1rem}
+.icon-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:.18s}
+.icon-btn:hover{background:var(--surface2);color:var(--text)}
+/* === LAYOUT === */
+.app{flex:1;display:grid;grid-template-columns:1fr 280px;gap:1rem;padding:1rem 1.5rem;max-width:1400px;margin:0 auto;width:100%}
+.main-panel{display:flex;flex-direction:column;gap:1rem}
+.side-panel{display:flex;flex-direction:column;gap:1rem}
+/* === CARDS === */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem;box-shadow:var(--shadow-sm)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.card-title{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.btn{padding:.4rem .85rem;border-radius:2rem;font-size:.8rem;font-weight:500;transition:.18s;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--text)}
+.btn:hover{border-color:var(--primary);color:var(--primary)}
+.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-primary:hover{background:var(--primary-h);border-color:var(--primary-h)}
+/* === WEATHER === */
+.weather-main{display:flex;align-items:center;gap:1.5rem;padding:.5rem 0}
+.weather-icon{font-size:3rem;line-height:1}
+.weather-temp{font-size:2.5rem;font-weight:300;line-height:1}
+.weather-desc{color:var(--muted);font-size:.9rem;margin-top:.25rem}
+.weather-meta{display:flex;gap:1rem;margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--border)}
+.weather-meta span{font-size:.8rem;color:var(--muted)}
+.forecast{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:.75rem}
+.forecast-day{text-align:center;padding:.5rem;background:var(--surface2);border-radius:var(--r);font-size:.8rem}
+.forecast-day .day{color:var(--muted);margin-bottom:.25rem}
+.forecast-day .icon{font-size:1.4rem;margin:.25rem 0}
+.forecast-day .temp{font-weight:600}
+/* === CALENDAR === */
+#calendar{font-size:.82rem}
+.fc .fc-toolbar-title{font-size:1rem;font-weight:600}
+.fc .fc-button{font-size:.78rem;padding:.25rem .6rem;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--r)}
+.fc .fc-button:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.fc .fc-button-primary:not(:disabled).fc-button-active{background:var(--primary);border-color:var(--primary)}
+.fc .fc-daygrid-day-number,.fc .fc-col-header-cell-cushion{color:var(--text);text-decoration:none}
+.fc .fc-daygrid-day.fc-day-today{background:color-mix(in oklch,var(--primary) 8%,var(--surface))}
+.fc-theme-standard td,.fc-theme-standard th,.fc-theme-standard .fc-scrollgrid{border-color:var(--border)}
+/* === TASKS === */
+.tasks-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.75rem}
+.task-col{background:var(--surface2);border-radius:var(--r);padding:.75rem}
+.task-col-header{display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem}
+.member-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.task-col-name{font-size:.8rem;font-weight:600}
+.task-item{display:flex;align-items:flex-start;gap:.5rem;padding:.35rem 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.task-item:last-child{border-bottom:none}
+.task-item input[type=checkbox]{margin-top:2px;accent-color:var(--primary);cursor:pointer}
+.task-label{display:flex;flex-direction:column;gap:2px;flex:1}
+.task-meta{font-size:.7rem;color:var(--muted)}
+.task-stars{color:#f0b429;font-size:.72rem}
+/* === LISTS === */
+.lists-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem}
+.list-section{background:var(--surface2);border-radius:var(--r);padding:.75rem}
+.list-title{font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem}
+.list-item{display:flex;align-items:center;gap:.5rem;padding:.3rem 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.list-item:last-child{border-bottom:none}
+.list-item input[type=checkbox]{accent-color:var(--primary);cursor:pointer}
+.list-item.done label{text-decoration:line-through;color:var(--muted)}
+.add-item-form{display:flex;gap:.4rem;margin-top:.6rem}
+.add-item-form input{flex:1;padding:.3rem .5rem;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);color:var(--text);font-size:.8rem}
+.add-item-form input:focus{outline:2px solid var(--primary);outline-offset:2px}
+/* === MEAL PLAN === */
+.meal-grid{display:grid;grid-template-columns:auto repeat(7,1fr);gap:2px;font-size:.75rem}
+.meal-day-header{text-align:center;padding:.3rem;font-weight:600;color:var(--muted);background:var(--surface2);border-radius:var(--r) var(--r) 0 0}
+.meal-label{display:flex;align-items:center;padding:.3rem .5rem;font-weight:600;color:var(--muted);background:var(--surface2)}
+.meal-cell{padding:.35rem .4rem;background:var(--surface2);border-radius:2px;cursor:pointer;min-height:38px;transition:.15s}
+.meal-cell:hover{background:color-mix(in oklch,var(--primary) 12%,var(--surface2));color:var(--primary)}
+.meal-cell:empty::after{content:'+ Add';color:var(--faint);font-size:.7rem}
+/* === TODAY EVENTS === */
+.today-event{display:flex;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--border);align-items:flex-start}
+.today-event:last-child{border-bottom:none}
+.event-bar{width:3px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:36px}
+.event-time{font-size:.72rem;color:var(--muted);white-space:nowrap;padding-top:2px}
+.event-title{font-size:.83rem;font-weight:500}
+.event-member{font-size:.7rem;color:var(--muted);margin-top:2px}
+/* === COUNTDOWNS === */
+.countdown-item{display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)}
+.countdown-item:last-child{border-bottom:none}
+.countdown-days{font-size:1.6rem;font-weight:700;color:var(--primary);min-width:50px;text-align:right}
+.countdown-info{flex:1}
+.countdown-label{font-size:.83rem;font-weight:500}
+.countdown-date{font-size:.72rem;color:var(--muted)}
+/* === STARS === */
+.stars-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+.star-card{background:var(--surface2);border-radius:var(--r);padding:.6rem;text-align:center}
+.star-name{font-size:.75rem;font-weight:600;color:var(--muted);margin-bottom:.25rem}
+.star-count{font-size:1.4rem;font-weight:700;color:#f0b429}
+/* === VOICE FAB === */
+#voice-fab{position:fixed;bottom:1.5rem;right:1.5rem;width:52px;height:52px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,.25);z-index:200;transition:.18s;border:none;cursor:pointer}
+#voice-fab:hover{background:var(--primary-h);transform:scale(1.05)}
+#voice-fab.listening{animation:pulse 1s ease-in-out infinite;background:#e53e3e}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(229,62,62,.4)}50%{box-shadow:0 0 0 12px rgba(229,62,62,0)}}
+/* === ADD EVENT MODAL === */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:calc(var(--r)*2);padding:1.5rem;width:min(400px,90vw);box-shadow:var(--shadow-md)}
+.modal h3{font-size:1rem;font-weight:600;margin-bottom:1rem}
+.form-group{margin-bottom:.75rem}
+.form-group label{display:block;font-size:.78rem;font-weight:500;color:var(--muted);margin-bottom:.3rem}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:.45rem .6rem;border:1px solid var(--border);border-radius:var(--r);background:var(--bg);color:var(--text);font:inherit;font-size:.85rem}
+.form-group input:focus,.form-group select:focus{outline:2px solid var(--primary);outline-offset:2px}
+.modal-actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem}
+/* === SCREENSAVER === */
+#screensaver{position:fixed;inset:0;background:#000;z-index:500;display:none;flex-direction:column;align-items:center;justify-content:center;cursor:pointer}
+#screensaver.active{display:flex}
+#ss-time{font-size:clamp(4rem,15vw,10rem);font-weight:200;color:#fff;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+#ss-date{font-size:clamp(1rem,3vw,1.8rem);color:rgba(255,255,255,.5);margin-top:.5rem}
+/* === TOAST === */
+#toast{position:fixed;bottom:5rem;left:50%;transform:translateX(-50%) translateY(20px);background:var(--primary);color:#fff;padding:.6rem 1.2rem;border-radius:2rem;font-size:.85rem;opacity:0;transition:.3s;pointer-events:none;z-index:400}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+/* TABS */
+.tab-panel{display:none}.tab-panel.active{display:block}
+@media(max-width:900px){.app{grid-template-columns:1fr}.side-panel{display:none}}
+</style>
+</head>
+<body>
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="Family Hub">
+      <rect x="2" y="6" width="24" height="20" rx="3" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M2 11h24" stroke="currentColor" stroke-width="1.8"/>
+      <rect x="7" y="2" width="3" height="7" rx="1.5" fill="currentColor"/>
+      <rect x="18" y="2" width="3" height="7" rx="1.5" fill="currentColor"/>
+      <rect x="7" y="15" width="4" height="4" rx="1" fill="currentColor" opacity=".5"/>
+      <rect x="12" y="15" width="4" height="4" rx="1" fill="currentColor" opacity=".7"/>
+      <rect x="17" y="15" width="4" height="4" rx="1" fill="currentColor" opacity=".5"/>
+    </svg>
+    Family Hub
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('calendar')">Calendar</button>
+    <button class="nav-tab" onclick="switchTab('tasks')">Chores</button>
+    <button class="nav-tab" onclick="switchTab('lists')">Lists</button>
+    <button class="nav-tab" onclick="switchTab('meals')">Meals</button>
+  </div>
+  <div class="nav-actions">
+    <button class="icon-btn" onclick="calendar && calendar.refetchEvents()" title="Refresh"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></button>
+    <button class="icon-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
+  </div>
+</nav>
+
+<div class="app">
+  <!-- MAIN -->
+  <div class="main-panel">
+    <!-- CALENDAR TAB -->
+    <div id="tab-calendar" class="tab-panel active">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Family Calendar</span>
+          <button class="btn btn-primary" onclick="openAddEvent()">+ Add Event</button>
+        </div>
+        <div id="calendar"></div>
+      </div>
+    </div>
+
+    <!-- TASKS TAB -->
+    <div id="tab-tasks" class="tab-panel">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Chores &amp; Tasks</span><button class="btn btn-primary" onclick="addTask()">+ Add Task</button></div>
+        <div class="tasks-grid" id="tasks-grid"></div>
+      </div>
+    </div>
+
+    <!-- LISTS TAB -->
+    <div id="tab-lists" class="tab-panel">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Shared Lists</span></div>
+        <div class="lists-grid" id="lists-grid"></div>
+      </div>
+    </div>
+
+    <!-- MEALS TAB -->
+    <div id="tab-meals" class="tab-panel">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Meal Plan</span><button class="btn" onclick="suggestMeals()">🤖 AI Suggest</button></div>
+        <div class="meal-grid" id="meal-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="side-panel">
+    <!-- WEATHER -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Weather — Baltimore</span></div>
+      <div class="weather-main">
+        <div class="weather-icon">⛅</div>
+        <div>
+          <div class="weather-temp">74°F</div>
+          <div class="weather-desc">Partly Cloudy</div>
+        </div>
+      </div>
+      <div class="weather-meta">
+        <span>💧 62%</span><span>💨 8 mph</span><span>👁 10 mi</span>
+      </div>
+      <div class="forecast">
+        <div class="forecast-day"><div class="day">Tue</div><div class="icon">🌧</div><div class="temp">68°</div></div>
+        <div class="forecast-day"><div class="day">Wed</div><div class="icon">☀️</div><div class="temp">79°</div></div>
+        <div class="forecast-day"><div class="day">Thu</div><div class="icon">⛅</div><div class="temp">76°</div></div>
+        <div class="forecast-day"><div class="day">Fri</div><div class="icon">🌩</div><div class="temp">71°</div></div>
+      </div>
+    </div>
+
+    <!-- TODAY -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Today</span></div>
+      <div id="today-events"></div>
+    </div>
+
+    <!-- COUNTDOWNS -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Countdowns</span></div>
+      <div id="countdowns"></div>
+    </div>
+
+    <!-- STARS -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">⭐ Stars</span></div>
+      <div class="stars-grid" id="stars-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD EVENT MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>Add Event</h3>
+    <div class="form-group"><label>Title</label><input id="ev-title" placeholder="Event name"></div>
+    <div class="form-group"><label>Date</label><input id="ev-date" type="date"></div>
+    <div class="form-group"><label>Time (optional)</label><input id="ev-time" type="time"></div>
+    <div class="form-group"><label>End Time</label><input id="ev-end" type="time"></div>
+    <div class="form-group"><label>Person</label>
+      <select id="ev-member">
+        <option value="family">👨‍👩‍👧 Family</option>
+        <option value="wife">Wife</option>
+        <option value="me">Me</option>
+        <option value="kids">Kids</option>
+      </select>
+    </div>
+    <div class="form-group"><label>Notes</label><textarea id="ev-notes" rows="2" style="resize:vertical"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEvent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREENSAVER -->
+<div id="screensaver" onclick="wakeUp()">
+  <div id="ss-time"></div>
+  <div id="ss-date"></div>
+</div>
+
+<!-- VOICE FAB -->
+<button id="voice-fab" onclick="toggleVoice()" title="Voice add event">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" y1="19" x2="12" y2="23"/>
+    <line x1="8" y1="23" x2="16" y2="23"/>
+  </svg>
+</button>
+
+<div id="toast"></div>
+
+<script>
+// === DATA ===
+const MEMBERS = [
+  {id:'wife',  name:'Wife',   color:'#e07b8a', stars:12},
+  {id:'me',    name:'Me',     color:'#4f98a3', stars:8},
+  {id:'kids',  name:'Kids',   color:'#f0b429', stars:15},
+  {id:'family',name:'Family', color:'#6daa45', stars:0},
+];
+
+let events = [
+  {id:'e1', title:"Doctor Appt", start:'2026-06-16T10:00', end:'2026-06-16T11:00', member:'wife', color:'#e07b8a'},
+  {id:'e2', title:"Soccer Practice", start:'2026-06-16T17:00', end:'2026-06-16T18:30', member:'kids', color:'#f0b429'},
+  {id:'e3', title:"Date Night 🍷", start:'2026-06-20T19:00', end:'2026-06-20T22:00', member:'family', color:'#6daa45'},
+  {id:'e4', title:"Work Call", start:'2026-06-17T09:00', end:'2026-06-17T10:00', member:'me', color:'#4f98a3'},
+  {id:'e5', title:"4th of July BBQ 🎆", start:'2026-07-04', member:'family', color:'#6daa45'},
+  {id:'e6', title:"Dentist", start:'2026-06-19T14:00', end:'2026-06-19T15:00', member:'kids', color:'#f0b429'},
+];
+
+const tasks = {
+  wife:  [{text:'Grocery run',   due:'Today',   stars:3, done:false},{text:'Pay bills',     due:'Friday',  stars:2, done:false}],
+  me:    [{text:'Mow lawn',      due:'Saturday',stars:5, done:false},{text:'Fix sink',      due:'Sunday',  stars:4, done:true}],
+  kids:  [{text:'Clean room',    due:'Today',   stars:3, done:false},{text:'Homework',     due:'Daily',   stars:2, done:false},{text:'Dishes',       due:'Tonight', stars:1, done:true}],
+  family:[{text:'Meal prep',     due:'Sunday',  stars:3, done:false}],
+};
+
+const lists = {
+  Grocery:['Milk','Eggs','Bread','Chicken','Bananas','Coffee'],
+  'To-Do':['Call insurance','Schedule oil change','Return Amazon pkg'],
+  School: ['Permission slip','Science project supplies','Library books due'],
+  Ideas:  ['Summer vacation spots','New dinner recipes','Game night ideas'],
+};
+
+const meals = {
+  days:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+  breakfast:['Pancakes','Oatmeal','Eggs','Yogurt','Waffles','Cereal','Bagels'],
+  lunch:    ['Salad','Sandwiches','Soup','Leftovers','Tacos','Pizza','Burgers'],
+  dinner:   ['Roast Chicken','Pasta','Stir Fry','Tacos','Salmon','Burgers','BBQ Ribs'],
+};
+
+const countdowns = [
+  {label:'Beach Vacation 🏖', date:'2026-08-10'},
+  {label:'Kids\' Birthday 🎂', date:'2026-07-22'},
+  {label:'School Starts 🎒', date:'2026-09-02'},
+  {label:"New Year's Eve 🎉", date:'2026-12-31'},
+];
+
+// === CALENDAR ===
+let calendar;
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('calendar');
+  calendar = new FullCalendar.Calendar(el, {
+    initialView:'dayGridMonth',
+    headerToolbar:{left:'prev,next today',center:'title',right:'dayGridMonth,timeGridWeek,timeGridDay,listWeek'},
+    height:'auto',
+    events: events.map(e => ({...e, backgroundColor:e.color, borderColor:e.color})),
+    eventClick: info => showToast('📅 ' + info.event.title),
+    dateClick: info => openAddEvent(info.dateStr),
+    editable:true,
+    selectable:true,
+  });
+  calendar.render();
+  renderTasks();
+  renderLists();
+  renderMeals();
+  renderTodayEvents();
+  renderCountdowns();
+  renderStars();
+  startScreensaver();
+  setInterval(updateSS, 1000);
+});
+
+// === THEME ===
+function toggleTheme(){
+  const h=document.documentElement;
+  const t=h.getAttribute('data-theme')==='dark'?'light':'dark';
+  h.setAttribute('data-theme',t);
+  if(calendar) calendar.render();
+}
+
+// === TABS ===
+function switchTab(name){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// === TASKS ===
+function renderTasks(){
+  const g=document.getElementById('tasks-grid');
+  g.innerHTML=MEMBERS.map(m=>{
+    const ts=tasks[m.id]||[];
+    return `<div class="task-col">
+      <div class="task-col-header">
+        <div class="member-dot" style="background:${m.color}"></div>
+        <span class="task-col-name">${m.name}</span>
+      </div>
+      ${ts.map((t,i)=>`<div class="task-item">
+        <input type="checkbox" ${t.done?'checked':''} onchange="toggleTask('${m.id}',${i},this.checked)">
+        <div class="task-label">
+          <span style="${t.done?'text-decoration:line-through;opacity:.5':''}">${t.text}</span>
+          <span class="task-meta">${t.due} <span class="task-stars">${'⭐'.repeat(t.stars)}</span></span>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+function toggleTask(member,i,val){tasks[member][i].done=val;renderTasks();showToast(val?'✅ Task done!':'↩ Task undone');}
+function addTask(){const m=prompt('Member (wife/me/kids/family):');const t=prompt('Task name:');const s=parseInt(prompt('Stars (1-5):')||'1');if(m&&t&&tasks[m]){tasks[m].push({text:t,due:'Soon',stars:s,done:false});renderTasks();}}
+
+// === LISTS ===
+function renderLists(){
+  const g=document.getElementById('lists-grid');
+  g.innerHTML=Object.entries(lists).map(([name,items])=>`
+    <div class="list-section">
+      <div class="list-title">${name}</div>
+      ${items.map((item,i)=>`<div class="list-item" id="li-${name}-${i}">
+        <input type="checkbox" onchange="strikeItem('${name}',${i},this)">
+        <label>${item}</label>
+      </div>`).join('')}
+      <div class="add-item-form">
+        <input placeholder="Add item..." id="inp-${name}" onkeydown="if(event.key==='Enter')addListItem('${name}')">
+        <button class="btn" onclick="addListItem('${name}')">+</button>
+      </div>
+    </div>`);
+}
+function strikeItem(list,i,cb){const el=document.getElementById(`li-${list}-${i}`);el.classList.toggle('done',cb.checked);}
+function addListItem(list){const inp=document.getElementById('inp-'+list);if(inp.value.trim()){lists[list].push(inp.value.trim());renderLists();}}
+
+// === MEALS ===
+function renderMeals(){
+  const g=document.getElementById('meal-grid');
+  let html='<div></div>'+meals.days.map(d=>`<div class="meal-day-header">${d}</div>`).join('');
+  ['Breakfast','Lunch','Dinner'].forEach((meal,mi)=>{
+    html+=`<div class="meal-label">${meal}</div>`;
+    meals.days.forEach((_,di)=>{
+      const val=meals[meal.toLowerCase()][di]||'';
+      html+=`<div class="meal-cell" contenteditable="true" onblur="meals['${meal.toLowerCase()}'][${di}]=this.textContent">${val}</div>`;
+    });
+  });
+  g.innerHTML=html;
+}
+function suggestMeals(){
+  const b=['Avocado Toast','Smoothie Bowl','French Toast','Scrambled Eggs','Granola','Crepes','Breakfast Burritos'];
+  const l=['Caesar Salad','Grilled Cheese','Chicken Wrap','BLT','Ramen','Caprese','Quesadilla'];
+  const d=['Spaghetti','Sheet Pan Salmon','Chicken Tikka','Beef Stew','Veggie Curry','Pork Chops','Lamb Chops'];
+  meals.breakfast=b;meals.lunch=l;meals.dinner=d;
+  renderMeals();showToast('🤖 Meal plan updated!');
+}
+
+// === TODAY EVENTS ===
+function renderTodayEvents(){
+  const today=new Date().toISOString().split('T')[0];
+  const todayEvts=events.filter(e=>e.start.startsWith(today));
+  const el=document.getElementById('today-events');
+  if(!todayEvts.length){el.innerHTML='<p style="color:var(--muted);font-size:.82rem;padding:.5rem 0">No events today 🎉</p>';return;}
+  el.innerHTML=todayEvts.map(e=>{
+    const time=e.start.includes('T')?e.start.split('T')[1].slice(0,5):'';
+    const m=MEMBERS.find(x=>x.id===e.member)||{};
+    return `<div class="today-event">
+      <div class="event-bar" style="background:${e.color}"></div>
+      <div><div class="event-time">${time}</div></div>
+      <div><div class="event-title">${e.title}</div><div class="event-member">${m.name||''}</div></div>
+    </div>`;
+  }).join('');
+}
+
+// === COUNTDOWNS ===
+function renderCountdowns(){
+  const el=document.getElementById('countdowns');
+  const now=new Date();
+  el.innerHTML=countdowns.map(c=>{
+    const diff=Math.ceil((new Date(c.date)-now)/(1000*60*60*24));
+    return `<div class="countdown-item">
+      <div class="countdown-days">${diff}</div>
+      <div class="countdown-info"><div class="countdown-label">${c.label}</div><div class="countdown-date">${c.date}</div></div>
+    </div>`;
+  }).join('');
+}
+
+// === STARS ===
+function renderStars(){
+  document.getElementById('stars-grid').innerHTML=MEMBERS.filter(m=>m.id!=='family').map(m=>`
+    <div class="star-card">
+      <div class="star-name" style="color:${m.color}">${m.name}</div>
+      <div class="star-count">${m.stars} ⭐</div>
+    </div>`).join('');
+}
+
+// === ADD EVENT MODAL ===
+function openAddEvent(dateStr){
+  document.getElementById('modal').classList.add('open');
+  if(dateStr) document.getElementById('ev-date').value=dateStr;
+  else document.getElementById('ev-date').value=new Date().toISOString().split('T')[0];
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function saveEvent(){
+  const title=document.getElementById('ev-title').value.trim();
+  const date=document.getElementById('ev-date').value;
+  const time=document.getElementById('ev-time').value;
+  const endTime=document.getElementById('ev-end').value;
+  const member=document.getElementById('ev-member').value;
+  if(!title||!date){showToast('⚠️ Title and date required');return;}
+  const color=MEMBERS.find(m=>m.id===member)?.color||'#4f98a3';
+  const start=time?`${date}T${time}`:date;
+  const end=endTime?`${date}T${endTime}`:undefined;
+  const ev={id:'e'+Date.now(),title,start,end,member,color};
+  events.push(ev);
+  calendar.addEvent({...ev,backgroundColor:color,borderColor:color});
+  renderTodayEvents();
+  closeModal();
+  showToast('✅ Event added!');
+  document.getElementById('ev-title').value='';
+}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+
+// === VOICE ===
+let recognition, listening=false;
+function toggleVoice(){
+  const fab=document.getElementById('voice-fab');
+  if(!('SpeechRecognition' in window||'webkitSpeechRecognition' in window)){showToast('⚠️ Voice not supported in this browser');return;}
+  if(listening){recognition&&recognition.stop();fab.classList.remove('listening');listening=false;return;}
+  recognition=new(window.SpeechRecognition||window.webkitSpeechRecognition)();
+  recognition.lang='en-US';recognition.interimResults=false;
+  recognition.onstart=()=>{fab.classList.add('listening');listening=true;showToast('🎙 Listening...');}
+  recognition.onend=()=>{fab.classList.remove('listening');listening=false;}
+  recognition.onresult=e=>{
+    const t=e.results[0][0].transcript;
+    showToast('🎙 "'+t+'"');
+    parseVoiceEvent(t);
+  };
+  recognition.start();
+}
+function parseVoiceEvent(text){
+  const dateMatch=text.match(/(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i);
+  const timeMatch=text.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  const now=new Date();
+  let date=now.toISOString().split('T')[0];
+  if(dateMatch){
+    const d=dateMatch[1].toLowerCase();
+    if(d==='tomorrow'){const t=new Date(now);t.setDate(t.getDate()+1);date=t.toISOString().split('T')[0];}
+    else if(d!=='today'){
+      const days=['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+      const target=days.indexOf(d);
+      if(target>=0){const t=new Date(now);const diff=(target-t.getDay()+7)%7||7;t.setDate(t.getDate()+diff);date=t.toISOString().split('T')[0];}
+    }
+  }
+  let timeStr='';
+  if(timeMatch){
+    let h=parseInt(timeMatch[1]);const m=timeMatch[2]?timeMatch[2]:'00';const ampm=timeMatch[3].toLowerCase();
+    if(ampm==='pm'&&h<12)h+=12;if(ampm==='am'&&h===12)h=0;
+    timeStr=`${String(h).padStart(2,'0')}:${m}`;
+  }
+  const title=text.replace(/(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(?::\d{2})?\s*(?:am|pm))/gi,'').replace(/\s+/g,' ').trim()||'New Event';
+  const color='#4f98a3';
+  const start=timeStr?`${date}T${timeStr}`:date;
+  const ev={id:'e'+Date.now(),title,start,member:'family',color};
+  events.push(ev);
+  calendar.addEvent({...ev,backgroundColor:color,borderColor:color});
+  renderTodayEvents();
+  showToast('✅ Added: '+title);
+}
+
+// === SCREENSAVER ===
+let idleTimer;
+function resetIdle(){clearTimeout(idleTimer);idleTimer=setTimeout(activateSS,5*60*1000);}
+function startScreensaver(){resetIdle();['mousemove','keydown','touchstart','click'].forEach(e=>document.addEventListener(e,resetIdle));}
+function activateSS(){document.getElementById('screensaver').classList.add('active');updateSS();}
+function wakeUp(){document.getElementById('screensaver').classList.remove('active');resetIdle();}
+function updateSS(){
+  const now=new Date();
+  const h=now.getHours(),m=now.getMinutes();
+  document.getElementById('ss-time').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  document.getElementById('ss-date').textContent=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+}
+
+// === TOAST ===
+let toastTimer;
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>
