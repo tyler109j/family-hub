@@ -3,36 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Our Family Planner</title>
+  <meta name="description" content="A private shared family planner for Tyler and Kayla.">
+  <title>Tyler & Kayla's Family Planner</title>
   <link rel="stylesheet" href="src/styles.css">
 </head>
 <body>
   <main class="shell">
     <section class="hero">
-      <div>
-        <p class="eyebrow">Private family operating system</p>
-        <h1>Our Family Planner</h1>
-        <p class="lede">Coordinate calendars, chores, meals, shopping, household notes, and assistant suggestions in one calm place.</p>
+      <div class="hero-copy">
+        <p class="eyebrow">Tyler + Kayla · Private family space</p>
+        <h1>The family plan, all in one place.</h1>
+        <p class="lede">Calendars, chores, groceries, meals, and household notes—kept in sync whether you update them here or simply tell your Family Assistant.</p>
+        <div class="hero-pills" aria-label="Planner features">
+          <span>Shared instantly</span>
+          <span>ChatGPT connected</span>
+          <span>Two-person access</span>
+        </div>
       </div>
-      <aside class="profile">
-        <span id="authStatus" class="status">Private sign-in for Tyler and Kayla</span>
-        <form id="authForm" class="form">
-          <input id="email" type="email" autocomplete="email" placeholder="Email" required>
-          <input id="password" type="password" autocomplete="current-password" minlength="8" placeholder="Password" required>
-          <button name="authAction" value="signin">Sign in</button>
-          <button name="authAction" value="signup" type="submit">Create account</button>
-        </form>
-        <button id="signOut" hidden>Sign out</button>
-        <small id="authMessage">Only the two approved family emails can access planner data.</small>
+
+      <aside class="profile" aria-labelledby="signInTitle">
+        <div>
+          <span id="authStatus" class="status">Private sign-in</span>
+          <h2 id="signInTitle">Welcome home</h2>
+          <p id="authMessage" class="profile-copy">Sign in with an approved family account.</p>
+        </div>
+
+        <button id="googleSignIn" class="google-button" type="button">
+          <span class="google-mark" aria-hidden="true">G</span>
+          Continue with Google
+        </button>
+
+        <details id="passwordAccess" class="password-access">
+          <summary>Use email and password</summary>
+          <form id="authForm" class="form compact-form">
+            <label>
+              <span>Email</span>
+              <input id="email" type="email" autocomplete="email" placeholder="you@gmail.com" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="password" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters" required>
+            </label>
+            <div class="button-row">
+              <button name="authAction" value="signin" type="submit">Sign in</button>
+              <button class="secondary-button" name="authAction" value="signup" type="submit">Create account</button>
+            </div>
+          </form>
+        </details>
+
+        <button id="signOut" class="secondary-button" type="button" hidden>Sign out</button>
+        <small class="privacy-note">Only Tyler and Kayla can read or change this planner.</small>
       </aside>
     </section>
-    <section id="dashboard" class="grid" hidden></section>
-    <section class="setup">
-      <h2>Private family space</h2>
-      <p>Planner data is protected by Supabase authentication and row-level access rules.</p>
+
+    <section id="dashboard" hidden>
+      <header class="dashboard-bar">
+        <div>
+          <p class="eyebrow">Household dashboard</p>
+          <h2>Today at a glance</h2>
+          <p id="signedInAs" class="dashboard-copy"></p>
+        </div>
+        <div class="live-indicator">
+          <span id="liveDot" class="live-dot" aria-hidden="true"></span>
+          <span id="liveStatus">Connecting live updates…</span>
+        </div>
+      </header>
+
+      <div id="summary" class="summary-grid" aria-label="Planner summary"></div>
+      <section id="plannerGrid" class="grid" aria-label="Family planner"></section>
+    </section>
+
+    <section class="assistant-banner">
+      <div>
+        <p class="eyebrow">Family Assistant</p>
+        <h2>Say it naturally. See it here.</h2>
+        <p>“Add bananas,” “Schedule the dentist Tuesday at 3,” or “Tyler will handle pickup tomorrow.” The assistant saves it to this same shared planner.</p>
+      </div>
+      <a href="privacy.html">Privacy</a>
     </section>
   </main>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.50.0"></script>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.6"></script>
   <script src="src/app.js"></script>
 </body>
 </html>
