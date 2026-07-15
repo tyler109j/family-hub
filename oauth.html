@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Connect Family Assistant</title>
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body class="oauth-body">
+  <main class="oauth-shell">
+    <section class="oauth-card">
+      <p class="eyebrow">Tyler + Kayla · Secure connection</p>
+      <h1>Connect Family Assistant</h1>
+      <p class="lede">Sign in as yourself, then allow your ChatGPT assistant to read and update the same shared planner.</p>
+
+      <section id="oauthLoginPanel" class="oauth-panel">
+        <h2>First, sign in</h2>
+        <p>Use the Google account matching your approved family email.</p>
+        <button id="oauthGoogleSignIn" class="google-button" type="button">
+          <span class="google-mark" aria-hidden="true">G</span>
+          Continue with Google
+        </button>
+
+        <details class="password-access">
+          <summary>Use email and password</summary>
+          <form id="oauthLoginForm" class="form compact-form">
+            <label>
+              <span>Email</span>
+              <input id="oauthEmail" type="email" autocomplete="email" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="oauthPassword" type="password" autocomplete="current-password" minlength="8" required>
+            </label>
+            <button type="submit">Sign in</button>
+          </form>
+        </details>
+      </section>
+
+      <section id="oauthConsentPanel" class="oauth-panel" hidden>
+        <h2>Allow <span id="oauthClientName">Family Assistant</span>?</h2>
+        <p id="oauthUser"></p>
+        <p>This lets the assistant:</p>
+        <ul>
+          <li>Read the shared family planner when you ask</li>
+          <li>Add, update, complete, or remove planner items</li>
+          <li>Record that the change came from your account</li>
+        </ul>
+        <div class="oauth-actions">
+          <button id="oauthApprove" type="button">Allow access</button>
+          <button id="oauthDeny" class="secondary-button" type="button">Deny</button>
+        </div>
+        <button id="oauthSignOut" class="text-button" type="button">Use a different account</button>
+      </section>
+
+      <p id="oauthMessage" class="oauth-message">Checking the connection request…</p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.6"></script>
+  <script src="src/oauth.js"></script>
+</body>
+</html>
