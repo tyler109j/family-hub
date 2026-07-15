@@ -1,1 +1,162 @@
-const SUPABASE_URL='https://vxorqbapoienakldbdre.supabase.co';const SUPABASE_KEY='sb_publishable_RxZwNUwJTJ5OlvZrobIwRA_5SGfxQGs';const supabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);const sections=[['calendar','Calendar',['Event title','Date','Notes']],['tasks','Tasks & chores',['Task','Assignee','Due date']],['shopping','Shopping list',['Item','Category']],['meals','Meal plan',['Day','Meal']],['notes','Family notes',['Note title','Details']],['agents','Agent inbox',['Agent name','Suggestion']]];let data=JSON.parse(localStorage.familyPlanner||'null')||{calendar:[['School pickup','Tomorrow Â· Alex','Remember library books']],tasks:[['Pack lunches','Alex Â· due soon','']],shopping:[['Milk','Dairy',''],['Apples','Produce','']],meals:[['Monday','Taco bowls','']],notes:[['Emergency info','Add doctor, school, and household details','']],agents:[['Family Assistant','Draft weekend plan','']]};let currentUser=null;const dash=document.querySelector('#dashboard');const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function render(){dash.innerHTML=sections.map(([key,title,fields])=>`<article class="card"><h2>${title}</h2><form class="form" data-key="${key}">${fields.map((f,i)=>i===fields.length-1&&key==='notes'?`<textarea placeholder="${f}"></textarea>`:`<input placeholder="${f}">`).join('')}<button>Add ${title.toLowerCase()}</button></form><div>${(data[key]||[]).map((x,i)=>`<div class="item"><div><strong>${esc(x[0])}</strong><small>${esc(x[1]||'')}</small>${x[2]?`<small>${esc(x[2])}</small>`:''}</div><button data-remove="${key}" data-index="${i}">Done</button></div>`).join('')}</div></article>`).join('')}function save(){localStorage.familyPlanner=JSON.stringify(data)}async function syncCloud(section,values){if(currentUser)await supabase.from('family_items').insert({user_id:currentUser.id,section,values})}async function loadCloud(){if(!currentUser)return;const {data:rows}=await supabase.from('family_items').select('section,values').eq('user_id',currentUser.id);if(rows?.length){data=Object.fromEntries(sections.map(([k])=>[k,[]]));rows.forEach(r=>(data[r.section]||=[]).push(r.values));render()}}dash.addEventListener('submit',async e=>{e.preventDefault();const f=e.target,k=f.dataset.key,vals=[...f.querySelectorAll('input,textarea')].map(x=>x.value.trim());if(vals[0]){data[k].push(vals);save();await syncCloud(k,vals);render()}});dash.addEventListener('click',e=>{if(e.target.dataset.remove){data[e.target.dataset.remove].splice(+e.target.dataset.index,1);save();render()}});document.querySelector('#authForm').onsubmit=async e=>{e.preventDefault();const email=document.querySelector('#email').value,password=document.querySelector('#password').value;let r=await supabase.auth.signInWithPassword({email,password});if(r.error)r=await supabase.auth.signUp({email,password});document.querySelector('#authMessage').textContent=r.error?.message||'Signed in';if(r.data?.user){currentUser=r.data.user;document.querySelector('#authForm').hidden=true;document.querySelector('#signOut').hidden=false;await loadCloud()}};document.querySelector('#signOut').onclick=async()=>{await supabase.auth.signOut();location.reload()};supabase.auth.getSession().then(async({data})=>{if(data.session){currentUser=data.session.user;document.querySelector('#authForm').hidden=true;document.querySelector('#signOut').hidden=false;await loadCloud()}});render();
+const SUPABASE_URL = 'https://vxorqbapoienakldbdre.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_RxZwNUwJTJ5OlvZrobIwRA_5SGfxQGs';
+const ALLOWED_EMAILS = new Set([
+  'tyler109j@gmail.com',
+  'kaylajilljoyce@gmail.com',
+]);
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const sections = [
+  ['calendar', 'Calendar', ['Event title', 'Date', 'Notes']],
+  ['tasks', 'Tasks & chores', ['Task', 'Assignee', 'Due date']],
+  ['shopping', 'Shopping list', ['Item', 'Category']],
+  ['meals', 'Meal plan', ['Day', 'Meal']],
+  ['notes', 'Family notes', ['Note title', 'Details']],
+  ['agents', 'Agent inbox', ['Agent name', 'Suggestion']],
+];
+const blankData = () => Object.fromEntries(sections.map(([key]) => [key, []]));
+
+let currentUser = null;
+let data = blankData();
+const dashboard = document.querySelector('#dashboard');
+const authForm = document.querySelector('#authForm');
+const authMessage = document.querySelector('#authMessage');
+const signOutButton = document.querySelector('#signOut');
+
+const normalizeEmail = value => value.trim().toLowerCase();
+const isAllowed = email => ALLOWED_EMAILS.has(normalizeEmail(email || ''));
+const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[char]));
+
+function storageKey() {
+  return currentUser ? `familyPlanner:${currentUser.id}` : null;
+}
+
+function render() {
+  dashboard.innerHTML = sections.map(([key, title, fields]) => `
+    <article class="card">
+      <h2>${title}</h2>
+      <form class="form" data-key="${key}">
+        ${fields.map((field, index) => index === fields.length - 1 && key === 'notes'
+          ? `<textarea placeholder="${field}"></textarea>`
+          : `<input placeholder="${field}">`).join('')}
+        <button>Add ${title.toLowerCase()}</button>
+      </form>
+      <div>${(data[key] || []).map((item, index) => `
+        <div class="item">
+          <div>
+            <strong>${escapeHtml(item[0])}</strong>
+            <small>${escapeHtml(item[1] || '')}</small>
+            ${item[2] ? `<small>${escapeHtml(item[2])}</small>` : ''}
+          </div>
+          <button data-remove="${key}" data-index="${index}">Done</button>
+        </div>`).join('')}
+      </div>
+    </article>`).join('');
+}
+
+function saveLocal() {
+  if (storageKey()) localStorage.setItem(storageKey(), JSON.stringify(data));
+}
+
+async function loadPlanner() {
+  const local = localStorage.getItem(storageKey());
+  data = local ? JSON.parse(local) : blankData();
+  const { data: rows, error } = await supabase
+    .from('family_items')
+    .select('section,values')
+    .eq('user_id', currentUser.id);
+  if (error) {
+    authMessage.textContent = 'Signed in, but planner data could not be loaded.';
+    return;
+  }
+  if (rows.length) {
+    data = blankData();
+    rows.forEach(row => (data[row.section] ||= []).push(row.values));
+    saveLocal();
+  }
+  dashboard.hidden = false;
+  render();
+}
+
+async function acceptSession(user) {
+  if (!user || !isAllowed(user.email)) {
+    await supabase.auth.signOut();
+    currentUser = null;
+    dashboard.hidden = true;
+    authForm.hidden = false;
+    signOutButton.hidden = true;
+    authMessage.textContent = 'Access is limited to Tyler and Kayla.';
+    return;
+  }
+  currentUser = user;
+  authForm.hidden = true;
+  signOutButton.hidden = false;
+  authMessage.textContent = `Signed in as ${user.email}`;
+  await loadPlanner();
+}
+
+authForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const email = normalizeEmail(document.querySelector('#email').value);
+  const password = document.querySelector('#password').value;
+  const action = event.submitter?.value || 'signin';
+
+  if (!isAllowed(email)) {
+    authMessage.textContent = 'That email is not approved for this private planner.';
+    return;
+  }
+
+  authMessage.textContent = action === 'signup' ? 'Creating accountâ€¦' : 'Signing inâ€¦';
+  const result = action === 'signup'
+    ? await supabase.auth.signUp({ email, password })
+    : await supabase.auth.signInWithPassword({ email, password });
+
+  if (result.error) {
+    authMessage.textContent = result.error.message;
+    return;
+  }
+  if (!result.data.session) {
+    authMessage.textContent = 'Check your email to confirm the account, then sign in.';
+    return;
+  }
+  await acceptSession(result.data.user);
+});
+
+signOutButton.addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  location.reload();
+});
+
+dashboard.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!currentUser) return;
+  const form = event.target;
+  const section = form.dataset.key;
+  const values = [...form.querySelectorAll('input,textarea')].map(input => input.value.trim());
+  if (!values[0]) return;
+  const { error } = await supabase.from('family_items').insert({
+    user_id: currentUser.id,
+    section,
+    values,
+  });
+  if (error) {
+    authMessage.textContent = 'This account is not authorized to save planner data.';
+    return;
+  }
+  data[section].push(values);
+  saveLocal();
+  render();
+});
+
+dashboard.addEventListener('click', event => {
+  if (!event.target.dataset.remove) return;
+  data[event.target.dataset.remove].splice(Number(event.target.dataset.index), 1);
+  saveLocal();
+  render();
+});
+
+supabase.auth.getSession().then(({ data: sessionData }) => {
+  if (sessionData.session) acceptSession(sessionData.session.user);
+});
