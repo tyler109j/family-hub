@@ -5,6 +5,9 @@ const ALLOWED_EMAILS = new Set([
   "tyler109j@gmail.com",
   "kaylajilljoyce@gmail.com",
 ]);
+const FAMILY_HOUSEHOLD_ID = "f1111111-1111-4111-8111-111111111111";
+const GOOGLE_OAUTH_CLIENT_ID =
+  "716942219100-bui92ujltr06i4b1ta67npashu3qejcr.apps.googleusercontent.com";
 
 const ITEM_TYPES = new Set(["calendar", "task", "shopping", "meal", "note"]);
 const STATUSES = new Set(["active", "completed", "cancelled"]);
@@ -149,6 +152,47 @@ function mutableSnapshot(item: Record<string, unknown> | null) {
   };
 }
 
+async function stableActorId(email: string) {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest("SHA-256", new TextEncoder().encode(email)),
+  );
+  digest[6] = (digest[6] & 0x0f) | 0x40;
+  digest[8] = (digest[8] & 0x3f) | 0x80;
+  const hex = Array.from(digest.slice(0, 16), (byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${
+    hex.slice(16, 20)
+  }-${hex.slice(20, 32)}`;
+}
+
+async function verifyGoogleIdentity(accessToken: string) {
+  const tokenInfoResponse = await fetch(
+    `https://oauth2.googleapis.com/tokeninfo?access_token=${
+      encodeURIComponent(accessToken)
+    }`,
+  );
+  if (!tokenInfoResponse.ok) return null;
+
+  const tokenInfo = await tokenInfoResponse.json() as Record<string, unknown>;
+  const audience = String(tokenInfo.aud ?? tokenInfo.issued_to ?? "");
+  if (audience !== GOOGLE_OAUTH_CLIENT_ID) return null;
+
+  const userInfoResponse = await fetch(
+    "https://openidconnect.googleapis.com/v1/userinfo",
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!userInfoResponse.ok) return null;
+
+  const userInfo = await userInfoResponse.json() as Record<string, unknown>;
+  const email = String(userInfo.email ?? "").trim().toLowerCase();
+  const emailVerified = userInfo.email_verified === true ||
+    userInfo.email_verified === "true";
+  if (!email || !emailVerified) return null;
+
+  return { email, actorId: await stableActorId(email) };
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -163,29 +207,40 @@ Deno.serve(async (request: Request) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!supabaseUrl || !supabaseKey) {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
     return respond(500, { error: "The planner service is not configured." });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    global: { headers: { Authorization: authorization } },
+  const accessToken = authorization.slice("Bearer ".length).trim();
+  let identity: { email: string; actorId: string } | null = null;
+  try {
+    identity = await verifyGoogleIdentity(accessToken);
+  } catch (error) {
+    console.error("Google token verification failed", error);
+  }
+  if (!identity) {
+    return respond(401, { error: "Your Family Planner sign-in has expired." });
+  }
+
+  const { email, actorId } = identity;
+  if (!ALLOWED_EMAILS.has(email)) {
+    return respond(403, { error: "This account is not a member of this family planner." });
+  }
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+    global: {
+      headers: {
+        "x-family-actor-email": email,
+        "x-family-actor-id": actorId,
+      },
+    },
     auth: {
       autoRefreshToken: false,
       detectSessionInUrl: false,
       persistSession: false,
     },
   });
-
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  const user = authData.user;
-  const email = user?.email?.trim().toLowerCase();
-  if (authError || !user || !email) {
-    return respond(401, { error: "Your Family Planner sign-in has expired." });
-  }
-  if (!ALLOWED_EMAILS.has(email)) {
-    return respond(403, { error: "This account is not a member of this family planner." });
-  }
 
   let body: Record<string, unknown>;
   try {
@@ -208,6 +263,7 @@ Deno.serve(async (request: Request) => {
       let query = supabase
         .from("planner_items")
         .select(ITEM_SELECT)
+        .eq("household_id", FAMILY_HOUSEHOLD_ID)
         .order("updated_at", { ascending: false })
         .limit(limit);
 
@@ -237,6 +293,7 @@ Deno.serve(async (request: Request) => {
       const { data, error } = await supabase
         .from("agent_activity_log")
         .select("id,item_id,actor_email,operation,source,summary,created_at")
+        .eq("household_id", FAMILY_HOUSEHOLD_ID)
         .order("created_at", { ascending: false })
         .limit(limit);
       if (error) throw error;
@@ -244,7 +301,12 @@ Deno.serve(async (request: Request) => {
     }
 
     if (operation === "create") {
-      const mutation = mutationFromBody(body, true);
+      const mutation = {
+        ...mutationFromBody(body, true),
+        household_id: FAMILY_HOUSEHOLD_ID,
+        created_by: actorId,
+        created_by_email: email,
+      };
       const { data, error } = await supabase
         .from("planner_items")
         .insert(mutation)
@@ -258,7 +320,8 @@ Deno.serve(async (request: Request) => {
       const { data: activity, error: activityError } = await supabase
         .from("agent_activity_log")
         .select("id,item_id,operation,before_state,after_state,created_at")
-        .eq("actor_user_id", user.id)
+        .eq("household_id", FAMILY_HOUSEHOLD_ID)
+        .eq("actor_user_id", actorId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -276,6 +339,7 @@ Deno.serve(async (request: Request) => {
       const { data: current, error: currentError } = await supabase
         .from("planner_items")
         .select(ITEM_SELECT)
+        .eq("household_id", FAMILY_HOUSEHOLD_ID)
         .eq("id", activity.item_id)
         .maybeSingle();
       if (currentError) throw currentError;
@@ -308,6 +372,7 @@ Deno.serve(async (request: Request) => {
       const { data, error } = await supabase
         .from("planner_items")
         .update(undoMutation)
+        .eq("household_id", FAMILY_HOUSEHOLD_ID)
         .eq("id", activity.item_id)
         .eq("updated_at", current.updated_at)
         .select(ITEM_SELECT)
@@ -339,6 +404,7 @@ Deno.serve(async (request: Request) => {
     const { data, error } = await supabase
       .from("planner_items")
       .update(mutation)
+      .eq("household_id", FAMILY_HOUSEHOLD_ID)
       .eq("id", itemId)
       .select(ITEM_SELECT)
       .maybeSingle();
