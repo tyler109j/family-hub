@@ -33,24 +33,6 @@
           Continue with Google
         </button>
 
-        <details id="passwordAccess" class="password-access">
-          <summary>Use email and password</summary>
-          <form id="authForm" class="form compact-form">
-            <label>
-              <span>Email</span>
-              <input id="email" type="email" autocomplete="email" placeholder="you@gmail.com" required>
-            </label>
-            <label>
-              <span>Password</span>
-              <input id="password" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters" required>
-            </label>
-            <div class="button-row">
-              <button name="authAction" value="signin" type="submit">Sign in</button>
-              <button class="secondary-button" name="authAction" value="signup" type="submit">Create account</button>
-            </div>
-          </form>
-        </details>
-
         <button id="signOut" class="secondary-button" type="button" hidden>Sign out</button>
         <small class="privacy-note">Only Tyler and Kayla can read or change this planner.</small>
       </aside>
@@ -85,7 +67,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.6"></script>
+  <script src="src/supabase.js"></script>
   <script src="src/app.js"></script>
 </body>
 </html>
