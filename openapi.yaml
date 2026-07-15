@@ -47,10 +47,12 @@ components:
       type: oauth2
       flows:
         authorizationCode:
-          authorizationUrl: https://yaridrmtmfxkfcdvnqnl.supabase.co/auth/v1/oauth/authorize
-          tokenUrl: https://yaridrmtmfxkfcdvnqnl.supabase.co/auth/v1/oauth/token
+          authorizationUrl: https://accounts.google.com/o/oauth2/v2/auth
+          tokenUrl: https://oauth2.googleapis.com/token
           scopes:
-            email: Identify the connected family member.
+            openid: Identify the connected Google account.
+            email: Read the verified email address for the family allowlist.
+            profile: Read the family member's basic Google profile.
   schemas:
     PlannerCommand:
       type: object
