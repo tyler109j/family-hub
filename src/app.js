@@ -69,11 +69,9 @@ const sectionConfigs = [
 const dashboard = document.querySelector('#dashboard');
 const plannerGrid = document.querySelector('#plannerGrid');
 const summary = document.querySelector('#summary');
-const authForm = document.querySelector('#authForm');
 const authMessage = document.querySelector('#authMessage');
 const authStatus = document.querySelector('#authStatus');
 const googleSignIn = document.querySelector('#googleSignIn');
-const passwordAccess = document.querySelector('#passwordAccess');
 const signOutButton = document.querySelector('#signOut');
 const signedInAs = document.querySelector('#signedInAs');
 const liveStatus = document.querySelector('#liveStatus');
@@ -302,7 +300,6 @@ async function acceptSession(user) {
     currentUser = null;
     dashboard.hidden = true;
     googleSignIn.hidden = false;
-    passwordAccess.hidden = false;
     signOutButton.hidden = true;
     authStatus.textContent = 'Access restricted';
     authMessage.textContent = 'This planner is limited to Tyler and Kayla.';
@@ -311,7 +308,6 @@ async function acceptSession(user) {
 
   currentUser = user;
   googleSignIn.hidden = true;
-  passwordAccess.hidden = true;
   signOutButton.hidden = false;
   dashboard.hidden = false;
   authStatus.textContent = 'Signed in';
@@ -332,37 +328,6 @@ googleSignIn.addEventListener('click', async () => {
     authMessage.textContent = error.message;
     showToast('Google sign-in is not available yet.', true);
   }
-});
-
-authForm.addEventListener('submit', async event => {
-  event.preventDefault();
-  const email = normalizeEmail(document.querySelector('#email').value);
-  const password = document.querySelector('#password').value;
-  const action = event.submitter?.value || 'signin';
-
-  if (!isAllowed(email)) {
-    authMessage.textContent = 'That email is not approved for this private planner.';
-    return;
-  }
-
-  authMessage.textContent = action === 'signup' ? 'Creating your account…' : 'Signing in…';
-  const result = action === 'signup'
-    ? await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${location.origin}${location.pathname}` },
-      })
-    : await supabase.auth.signInWithPassword({ email, password });
-
-  if (result.error) {
-    authMessage.textContent = result.error.message;
-    return;
-  }
-  if (!result.data.session) {
-    authMessage.textContent = 'Check your email to confirm the account, then sign in.';
-    return;
-  }
-  await acceptSession(result.data.user);
 });
 
 signOutButton.addEventListener('click', async () => {
