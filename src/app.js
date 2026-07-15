@@ -5,7 +5,7 @@ const ALLOWED_EMAILS = new Set([
   'kaylajilljoyce@gmail.com',
 ]);
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+const plannerDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     autoRefreshToken: true,
     detectSessionInUrl: true,
@@ -251,12 +251,12 @@ function renderPlanner() {
 async function loadPlanner({ quiet = false } = {}) {
   if (!currentUser) return;
   const [itemsResult, activityResult] = await Promise.all([
-    supabase
+    plannerDb
       .from('planner_items')
       .select('*')
       .neq('status', 'cancelled')
       .order('updated_at', { ascending: false }),
-    supabase
+    plannerDb
       .from('agent_activity_log')
       .select('id,item_id,actor_email,operation,source,summary,created_at')
       .order('created_at', { ascending: false })
@@ -279,8 +279,8 @@ function scheduleReload() {
 }
 
 function subscribeToPlanner() {
-  if (liveChannel) supabase.removeChannel(liveChannel);
-  liveChannel = supabase
+  if (liveChannel) plannerDb.removeChannel(liveChannel);
+  liveChannel = plannerDb
     .channel('family-planner-live')
     .on(
       'postgres_changes',
@@ -296,7 +296,7 @@ function subscribeToPlanner() {
 
 async function acceptSession(user) {
   if (!user || !isAllowed(user.email)) {
-    await supabase.auth.signOut();
+    await plannerDb.auth.signOut();
     currentUser = null;
     dashboard.hidden = true;
     googleSignIn.hidden = false;
@@ -320,7 +320,7 @@ async function acceptSession(user) {
 googleSignIn.addEventListener('click', async () => {
   authMessage.textContent = 'Opening Google sign-in…';
   const redirectTo = `${location.origin}${location.pathname}`;
-  const { error } = await supabase.auth.signInWithOAuth({
+  const { error } = await plannerDb.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo },
   });
@@ -331,8 +331,8 @@ googleSignIn.addEventListener('click', async () => {
 });
 
 signOutButton.addEventListener('click', async () => {
-  if (liveChannel) await supabase.removeChannel(liveChannel);
-  await supabase.auth.signOut();
+  if (liveChannel) await plannerDb.removeChannel(liveChannel);
+  await plannerDb.auth.signOut();
   location.reload();
 });
 
@@ -372,7 +372,7 @@ plannerGrid.addEventListener('submit', async event => {
 
   const submitButton = form.querySelector('button[type="submit"]');
   submitButton.disabled = true;
-  const { error } = await supabase.from('planner_items').insert(row);
+  const { error } = await plannerDb.from('planner_items').insert(row);
   submitButton.disabled = false;
 
   if (error) {
@@ -397,7 +397,7 @@ plannerGrid.addEventListener('click', async event => {
     : { status: 'cancelled', updated_via: 'website' };
 
   button.disabled = true;
-  const { error } = await supabase.from('planner_items').update(mutation).eq('id', id);
+  const { error } = await plannerDb.from('planner_items').update(mutation).eq('id', id);
   button.disabled = false;
   if (error) {
     showToast('That change could not be saved.', true);
@@ -411,12 +411,12 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden && currentUser) loadPlanner({ quiet: true });
 });
 
-supabase.auth.onAuthStateChange((_event, session) => {
+plannerDb.auth.onAuthStateChange((_event, session) => {
   if (session?.user && session.user.id !== currentUser?.id) {
     setTimeout(() => acceptSession(session.user), 0);
   }
 });
 
-supabase.auth.getSession().then(({ data }) => {
+plannerDb.auth.getSession().then(({ data }) => {
   if (data.session?.user) acceptSession(data.session.user);
 });
