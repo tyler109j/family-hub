@@ -5,6 +5,10 @@ const ALLOWED_EMAILS = new Set([
   "tyler109j@gmail.com",
   "kaylajilljoyce@gmail.com",
 ]);
+const ACTOR_EMAILS: Record<string, string> = {
+  Tyler: "tyler109j@gmail.com",
+  Kayla: "kaylajilljoyce@gmail.com",
+};
 const FAMILY_HOUSEHOLD_ID = "f1111111-1111-4111-8111-111111111111";
 const GOOGLE_OAUTH_CLIENT_ID =
   "716942219100-bui92ujltr06i4b1ta67npashu3qejcr.apps.googleusercontent.com";
@@ -166,6 +170,18 @@ async function stableActorId(email: string) {
   }-${hex.slice(20, 32)}`;
 }
 
+function secureEqual(left: string, right: string) {
+  const leftBytes = new TextEncoder().encode(left);
+  const rightBytes = new TextEncoder().encode(right);
+  if (leftBytes.length !== rightBytes.length) return false;
+
+  let difference = 0;
+  for (let index = 0; index < leftBytes.length; index += 1) {
+    difference |= leftBytes[index] ^ rightBytes[index];
+  }
+  return difference === 0;
+}
+
 async function verifyGoogleIdentity(accessToken: string) {
   const tokenInfoResponse = await fetch(
     `https://oauth2.googleapis.com/tokeninfo?access_token=${
@@ -208,19 +224,40 @@ Deno.serve(async (request: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const familyAgentApiKey = Deno.env.get("FAMILY_AGENT_API_KEY");
   if (!supabaseUrl || !serviceRoleKey) {
     return respond(500, { error: "The planner service is not configured." });
   }
 
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return respond(400, { error: "Send a valid JSON command." });
+  }
+
   const accessToken = authorization.slice("Bearer ".length).trim();
   let identity: { email: string; actorId: string } | null = null;
-  try {
-    identity = await verifyGoogleIdentity(accessToken);
-  } catch (error) {
-    console.error("Google token verification failed", error);
+  const isFamilyAgent = Boolean(
+    familyAgentApiKey && secureEqual(accessToken, familyAgentApiKey),
+  );
+
+  if (isFamilyAgent) {
+    const actor = typeof body.actor === "string" ? body.actor : "";
+    const email = ACTOR_EMAILS[actor];
+    if (!email) {
+      return respond(400, { error: "actor must be Tyler or Kayla." });
+    }
+    identity = { email, actorId: await stableActorId(email) };
+  } else {
+    try {
+      identity = await verifyGoogleIdentity(accessToken);
+    } catch (error) {
+      console.error("Google token verification failed", error);
+    }
   }
   if (!identity) {
-    return respond(401, { error: "Your Family Planner sign-in has expired." });
+    return respond(401, { error: "Your Family Planner authorization has expired." });
   }
 
   const { email, actorId } = identity;
@@ -241,13 +278,6 @@ Deno.serve(async (request: Request) => {
       persistSession: false,
     },
   });
-
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return respond(400, { error: "Send a valid JSON command." });
-  }
 
   const operation = typeof body.operation === "string" ? body.operation : "";
   if (!OPERATIONS.has(operation)) {
