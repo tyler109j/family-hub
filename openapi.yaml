@@ -16,8 +16,7 @@ paths:
         America/New_York. Before updating, completing, or cancelling an item when its
         ID is unknown, call list to locate the correct item.
       security:
-        - familyOAuth:
-            - email
+        - familyAssistantKey: []
       requestBody:
         required: true
         content:
@@ -34,7 +33,7 @@ paths:
         '400':
           description: The command was incomplete or invalid.
         '401':
-          description: The user must connect their Family Planner account.
+          description: The official shared assistant authorization is missing or invalid.
         '403':
           description: The signed-in account is not an approved family member.
         '404':
@@ -43,22 +42,16 @@ paths:
           description: The item changed and should be reviewed before retrying.
 components:
   securitySchemes:
-    familyOAuth:
-      type: oauth2
-      flows:
-        authorizationCode:
-          authorizationUrl: https://accounts.google.com/o/oauth2/v2/auth
-          tokenUrl: https://oauth2.googleapis.com/token
-          scopes:
-            openid: Identify the connected Google account.
-            email: Read the verified email address for the family allowlist.
-            profile: Read the family member's basic Google profile.
+    familyAssistantKey:
+      type: http
+      scheme: bearer
   schemas:
     PlannerCommand:
       type: object
       additionalProperties: false
       required:
         - operation
+        - actor
       properties:
         operation:
           type: string
@@ -71,6 +64,12 @@ components:
             - undo
             - history
           description: The planner operation to perform.
+        actor:
+          type: string
+          enum:
+            - Tyler
+            - Kayla
+          description: The family member making this request. Include it on every call.
         item_id:
           type: string
           format: uuid
