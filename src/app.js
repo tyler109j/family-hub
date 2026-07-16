@@ -77,6 +77,18 @@ const signedInAs = document.querySelector('#signedInAs');
 const liveStatus = document.querySelector('#liveStatus');
 const liveDot = document.querySelector('#liveDot');
 const toast = document.querySelector('#toast');
+const calendarView = document.querySelector('#calendarView');
+const calendarClose = document.querySelector('#calendarClose');
+const calendarToday = document.querySelector('#calendarToday');
+const calendarPrevious = document.querySelector('#calendarPrevious');
+const calendarNext = document.querySelector('#calendarNext');
+const calendarMonthLabel = document.querySelector('#calendarMonthLabel');
+const calendarMonthGrid = document.querySelector('#calendarMonthGrid');
+const calendarSelectedDate = document.querySelector('#calendarSelectedDate');
+const calendarDayItems = document.querySelector('#calendarDayItems');
+const calendarEventForm = document.querySelector('#calendarEventForm');
+const calendarEventDate = document.querySelector('#calendarEventDate');
+const calendarEventTime = document.querySelector('#calendarEventTime');
 
 let currentUser = null;
 let plannerItems = [];
@@ -84,6 +96,9 @@ let activityItems = [];
 let liveChannel = null;
 let reloadTimer = null;
 let toastTimer = null;
+let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let selectedCalendarDate = localDateKey(new Date());
+let calendarWasOpen = false;
 
 const normalizeEmail = value => String(value || '').trim().toLowerCase();
 const isAllowed = email => ALLOWED_EMAILS.has(normalizeEmail(email));
@@ -94,6 +109,20 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character =>
   '"': '&quot;',
   "'": '&#39;',
 }[character]));
+
+function localDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function dateFromKey(value) {
+  const [year, month, day] = String(value || '').split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+}
 
 function showToast(message, isError = false) {
   clearTimeout(toastTimer);
@@ -125,6 +154,47 @@ function formatDate(value) {
   return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
   }).format(new Date(year, month - 1, day));
+}
+
+function formatTime(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function calendarDateForItem(item) {
+  if (item.item_type === 'calendar' && item.starts_at) return localDateKey(item.starts_at);
+  if (item.item_type === 'task' && item.due_at) return localDateKey(item.due_at);
+  if (item.item_type === 'meal' && item.planned_for) return item.planned_for;
+  return '';
+}
+
+function calendarItemsByDate() {
+  return plannerItems
+    .map(item => ({ ...item, calendar_date: calendarDateForItem(item) }))
+    .filter(item => item.calendar_date)
+    .sort((left, right) => {
+      const leftTime = left.starts_at || left.due_at || `${left.calendar_date}T23:59:00`;
+      const rightTime = right.starts_at || right.due_at || `${right.calendar_date}T23:59:00`;
+      return new Date(leftTime) - new Date(rightTime);
+    });
+}
+
+function calendarItemLabel(item) {
+  if (item.item_type === 'calendar') return formatTime(item.starts_at);
+  if (item.item_type === 'task') return formatTime(item.due_at);
+  return 'Meal';
+}
+
+function calendarItemMeta(item) {
+  const parts = [];
+  if (item.item_type === 'calendar') parts.push(`Event at ${formatTime(item.starts_at)}`);
+  if (item.item_type === 'task') parts.push(`Task due ${formatTime(item.due_at)}`);
+  if (item.item_type === 'meal') parts.push('Meal plan');
+  if (item.assignee) parts.push(item.assignee);
+  return parts.join(' - ');
 }
 
 function renderForm(config) {
@@ -227,6 +297,117 @@ function renderSummary() {
     </div>`).join('');
 }
 
+function renderCalendarDayPanel(calendarItems) {
+  const selectedDate = dateFromKey(selectedCalendarDate);
+  calendarSelectedDate.textContent = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(selectedDate);
+
+  const dayItems = calendarItems.filter(item => item.calendar_date === selectedCalendarDate);
+  calendarDayItems.innerHTML = dayItems.length ? dayItems.map(item => {
+    const itemType = item.item_type === 'calendar' ? 'Event' : item.item_type === 'task' ? 'Task' : 'Meal';
+    const action = item.item_type === 'task'
+      ? `<button class="calendar-entry-action" type="button" data-calendar-action="${item.status === 'completed' ? 'reopen' : 'complete'}" data-id="${item.id}">${item.status === 'completed' ? 'Reopen' : 'Done'}</button>`
+      : item.item_type === 'calendar'
+      ? `<button class="calendar-entry-action remove" type="button" data-calendar-action="remove" data-id="${item.id}">Remove</button>`
+      : '';
+    const body = itemBody(item);
+
+    return `
+      <article class="calendar-day-entry ${item.status === 'completed' ? 'is-complete' : ''}">
+        <div class="calendar-day-entry-topline">
+          <span class="calendar-type-badge ${item.item_type}">${itemType}</span>
+          ${action}
+        </div>
+        <strong>${escapeHtml(item.title)}</strong>
+        <small>${escapeHtml(calendarItemMeta(item))}</small>
+        ${body ? `<p>${escapeHtml(body)}</p>` : ''}
+      </article>`;
+  }).join('') : '<p class="calendar-day-empty">Nothing planned yet. Add an event below.</p>';
+}
+
+function renderCalendarView() {
+  if (!currentUser || calendarView.hidden) return;
+
+  const year = calendarCursor.getFullYear();
+  const month = calendarCursor.getMonth();
+  const firstOfMonth = new Date(year, month, 1, 12);
+  const gridStart = new Date(year, month, 1 - firstOfMonth.getDay(), 12);
+  const todayKey = localDateKey(new Date());
+  const calendarItems = calendarItemsByDate();
+  const itemsByDate = calendarItems.reduce((grouped, item) => {
+    if (!grouped.has(item.calendar_date)) grouped.set(item.calendar_date, []);
+    grouped.get(item.calendar_date).push(item);
+    return grouped;
+  }, new Map());
+
+  calendarMonthLabel.textContent = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+  }).format(firstOfMonth);
+
+  const cells = [];
+  for (let offset = 0; offset < 42; offset += 1) {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + offset);
+    const dateKey = localDateKey(date);
+    const dayItems = itemsByDate.get(dateKey) || [];
+    const outsideMonth = date.getMonth() !== month;
+    const selected = dateKey === selectedCalendarDate;
+    const isToday = dateKey === todayKey;
+    const dateLabel = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }).format(date);
+
+    const visibleItems = dayItems.slice(0, 3);
+    const extraCount = dayItems.length - visibleItems.length;
+    cells.push(`
+      <div class="calendar-day ${outsideMonth ? 'outside-month' : ''} ${selected ? 'selected' : ''} ${isToday ? 'today' : ''}"
+           role="gridcell"
+           aria-selected="${selected}"
+           data-calendar-date="${dateKey}">
+        <button class="calendar-day-number" type="button" data-calendar-date="${dateKey}" aria-label="Select ${escapeHtml(dateLabel)}">
+          <span>${date.getDate()}</span>
+          ${isToday ? '<small>Today</small>' : ''}
+        </button>
+        <div class="calendar-day-chips">
+          ${visibleItems.map(item => `
+            <button class="calendar-chip ${item.item_type} ${item.status === 'completed' ? 'is-complete' : ''}"
+                    type="button"
+                    data-calendar-date="${dateKey}"
+                    data-calendar-item-id="${item.id}"
+                    title="${escapeHtml(item.title)}">
+              <span>${escapeHtml(calendarItemLabel(item))}</span>
+              <strong>${escapeHtml(item.title)}</strong>
+            </button>`).join('')}
+          ${extraCount > 0 ? `<button class="calendar-more" type="button" data-calendar-date="${dateKey}">+${extraCount} more</button>` : ''}
+        </div>
+      </div>`);
+  }
+
+  calendarMonthGrid.innerHTML = cells.join('');
+  calendarEventDate.value = selectedCalendarDate;
+  renderCalendarDayPanel(calendarItems);
+}
+
+function syncCalendarRoute() {
+  const open = location.hash === '#calendar' && Boolean(currentUser);
+  calendarView.hidden = !open;
+  document.body.classList.toggle('calendar-open', open);
+
+  if (open) {
+    renderCalendarView();
+    if (!calendarWasOpen) requestAnimationFrame(() => calendarClose.focus());
+  }
+  calendarWasOpen = open;
+}
+
 function renderPlanner() {
   renderSummary();
   plannerGrid.innerHTML = sectionConfigs.map(config => {
@@ -236,7 +417,9 @@ function renderPlanner() {
         <div class="card-heading">
           <div>
             <p class="card-eyebrow">${escapeHtml(config.eyebrow)}</p>
-            <h3>${escapeHtml(config.title)}</h3>
+            <h3>${config.key === 'calendar'
+              ? `<a class="calendar-title-link" href="#calendar">${escapeHtml(config.title)}<span>Open full calendar</span></a>`
+              : escapeHtml(config.title)}</h3>
           </div>
           <span class="card-count">${items.length}</span>
         </div>
@@ -246,6 +429,7 @@ function renderPlanner() {
         </div>
       </article>`;
   }).join('') + renderActivity();
+  if (!calendarView.hidden) renderCalendarView();
 }
 
 async function loadPlanner({ quiet = false } = {}) {
@@ -303,6 +487,7 @@ async function acceptSession(user) {
     signOutButton.hidden = true;
     authStatus.textContent = 'Access restricted';
     authMessage.textContent = 'This planner is limited to Tyler and Kayla.';
+    syncCalendarRoute();
     return;
   }
 
@@ -315,6 +500,7 @@ async function acceptSession(user) {
   signedInAs.textContent = `Shared securely between Tyler and Kayla · signed in as ${user.email}`;
   await loadPlanner();
   subscribeToPlanner();
+  syncCalendarRoute();
 }
 
 googleSignIn.addEventListener('click', async () => {
@@ -384,12 +570,8 @@ plannerGrid.addEventListener('submit', async event => {
   await loadPlanner({ quiet: true });
 });
 
-plannerGrid.addEventListener('click', async event => {
-  const button = event.target.closest('button[data-action]');
-  if (!button || !currentUser) return;
-
-  const action = button.dataset.action;
-  const id = button.dataset.id;
+async function updatePlannerItem(action, id, button) {
+  if (!currentUser) return;
   const mutation = action === 'complete'
     ? { status: 'completed', updated_via: 'website' }
     : action === 'reopen'
@@ -405,6 +587,101 @@ plannerGrid.addEventListener('click', async event => {
   }
   showToast(action === 'remove' ? 'Removed from the planner.' : 'Planner updated.');
   await loadPlanner({ quiet: true });
+}
+
+plannerGrid.addEventListener('click', async event => {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+  await updatePlannerItem(button.dataset.action, button.dataset.id, button);
+});
+
+calendarMonthGrid.addEventListener('click', event => {
+  const target = event.target.closest('[data-calendar-date]');
+  if (!target) return;
+  selectedCalendarDate = target.dataset.calendarDate;
+  const selected = dateFromKey(selectedCalendarDate);
+  if (selected.getMonth() !== calendarCursor.getMonth() || selected.getFullYear() !== calendarCursor.getFullYear()) {
+    calendarCursor = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  }
+  renderCalendarView();
+});
+
+calendarDayItems.addEventListener('click', async event => {
+  const button = event.target.closest('button[data-calendar-action]');
+  if (!button) return;
+  await updatePlannerItem(button.dataset.calendarAction, button.dataset.id, button);
+});
+
+calendarEventForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!currentUser) return;
+
+  const formData = new FormData(calendarEventForm);
+  const date = String(formData.get('date') || '').trim();
+  const time = String(formData.get('time') || '').trim();
+  const title = String(formData.get('title') || '').trim();
+  const startsAt = cleanDateTime(`${date}T${time}`);
+  if (!title || !startsAt) {
+    showToast('Add an event name, date, and time.', true);
+    return;
+  }
+
+  const submitButton = calendarEventForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  const { error } = await plannerDb.from('planner_items').insert({
+    item_type: 'calendar',
+    title,
+    starts_at: startsAt,
+    details: { notes: String(formData.get('notes') || '').trim() },
+    created_via: 'website',
+    updated_via: 'website',
+  });
+  submitButton.disabled = false;
+
+  if (error) {
+    showToast('That event could not be saved.', true);
+    return;
+  }
+
+  selectedCalendarDate = date;
+  const selected = dateFromKey(date);
+  calendarCursor = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  calendarEventForm.reset();
+  calendarEventDate.value = date;
+  calendarEventTime.value = '09:00';
+  showToast('Added to the family calendar.');
+  await loadPlanner({ quiet: true });
+});
+
+calendarPrevious.addEventListener('click', () => {
+  calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1);
+  renderCalendarView();
+});
+
+calendarNext.addEventListener('click', () => {
+  calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1);
+  renderCalendarView();
+});
+
+calendarToday.addEventListener('click', () => {
+  const today = new Date();
+  selectedCalendarDate = localDateKey(today);
+  calendarCursor = new Date(today.getFullYear(), today.getMonth(), 1);
+  renderCalendarView();
+});
+
+function closeCalendarView() {
+  history.replaceState(null, '', `${location.pathname}${location.search}`);
+  syncCalendarRoute();
+  requestAnimationFrame(() => document.querySelector('.calendar-title-link')?.focus());
+}
+
+calendarClose.addEventListener('click', closeCalendarView);
+
+window.addEventListener('hashchange', syncCalendarRoute);
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !calendarView.hidden) closeCalendarView();
 });
 
 document.addEventListener('visibilitychange', () => {
