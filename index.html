@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="A private shared family planner for Tyler and Kayla.">
   <title>Tyler & Kayla's Family Planner</title>
-  <link rel="stylesheet" href="src/styles.css">
+  <link rel="stylesheet" href="src/styles.css?v=calendar-1">
 </head>
 <body>
   <main class="shell">
@@ -55,6 +55,87 @@
       <section id="plannerGrid" class="grid" aria-label="Family planner"></section>
     </section>
 
+    <section id="calendarView" class="calendar-view" aria-labelledby="calendarViewTitle" hidden>
+      <div class="calendar-view-shell">
+        <header class="calendar-view-header">
+          <div class="calendar-view-brand">
+            <button id="calendarClose" class="calendar-back-button" type="button">Back to planner</button>
+            <div>
+              <p class="eyebrow">Tyler + Kayla</p>
+              <h2 id="calendarViewTitle">Family Calendar</h2>
+            </div>
+          </div>
+
+          <div class="calendar-controls" aria-label="Calendar navigation">
+            <button id="calendarToday" class="calendar-today-button" type="button">Today</button>
+            <button id="calendarPrevious" class="calendar-nav-button" type="button" aria-label="Previous month">Previous</button>
+            <button id="calendarNext" class="calendar-nav-button" type="button" aria-label="Next month">Next</button>
+          </div>
+        </header>
+
+        <div class="calendar-toolbar">
+          <div>
+            <p class="card-eyebrow">Month view</p>
+            <h3 id="calendarMonthLabel"></h3>
+          </div>
+          <div class="calendar-legend" aria-label="Calendar item types">
+            <span><i class="legend-dot event-dot" aria-hidden="true"></i>Events</span>
+            <span><i class="legend-dot task-dot" aria-hidden="true"></i>Tasks</span>
+            <span><i class="legend-dot meal-dot" aria-hidden="true"></i>Meals</span>
+          </div>
+        </div>
+
+        <div class="calendar-layout">
+          <div class="calendar-board" aria-label="Monthly family calendar">
+            <div class="calendar-weekdays" role="row" aria-hidden="true">
+              <span>Sun</span>
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
+            </div>
+            <div id="calendarMonthGrid" class="calendar-month-grid" role="grid"></div>
+          </div>
+
+          <aside class="calendar-day-panel" aria-labelledby="calendarSelectedDate">
+            <div class="calendar-day-heading">
+              <p class="card-eyebrow">Selected day</p>
+              <h3 id="calendarSelectedDate"></h3>
+            </div>
+            <div id="calendarDayItems" class="calendar-day-items" aria-live="polite"></div>
+
+            <form id="calendarEventForm" class="calendar-event-form">
+              <div>
+                <p class="card-eyebrow">Quick add</p>
+                <h3>Add an event</h3>
+              </div>
+              <label>
+                <span>Event</span>
+                <input id="calendarEventTitle" name="title" type="text" placeholder="Dinner, appointment, pickup..." required>
+              </label>
+              <div class="calendar-form-row">
+                <label>
+                  <span>Date</span>
+                  <input id="calendarEventDate" name="date" type="date" required>
+                </label>
+                <label>
+                  <span>Time</span>
+                  <input id="calendarEventTime" name="time" type="time" value="09:00" required>
+                </label>
+              </div>
+              <label>
+                <span>Notes</span>
+                <textarea id="calendarEventNotes" name="notes" placeholder="Address or anything worth remembering"></textarea>
+              </label>
+              <button type="submit">Add to family calendar</button>
+            </form>
+          </aside>
+        </div>
+      </div>
+    </section>
+
     <section class="assistant-banner">
       <div>
         <p class="eyebrow">Family Assistant</p>
@@ -68,6 +149,6 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="src/supabase.js?v=2.110.6"></script>
-  <script src="src/app.js?v=6002ed8"></script>
+  <script src="src/app.js?v=calendar-1"></script>
 </body>
 </html>
