@@ -13,7 +13,10 @@ const FAMILY_HOUSEHOLD_ID = "f1111111-1111-4111-8111-111111111111";
 const GOOGLE_OAUTH_CLIENT_ID =
   "716942219100-bui92ujltr06i4b1ta67npashu3qejcr.apps.googleusercontent.com";
 
-const ITEM_TYPES = new Set(["calendar", "task", "shopping", "meal", "note"]);
+const ITEM_TYPES = new Set([
+  "calendar", "task", "shopping", "meal", "note", "routine", "reminder",
+  "appointment", "maintenance", "bill", "activity", "list",
+]);
 const STATUSES = new Set(["active", "completed", "cancelled"]);
 const OPERATIONS = new Set([
   "list",
@@ -23,6 +26,9 @@ const OPERATIONS = new Set([
   "cancel",
   "undo",
   "history",
+  "skip",
+  "pause",
+  "resume",
 ]);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -82,12 +88,16 @@ function cleanDate(value: unknown) {
   return value;
 }
 
-function mutationFromBody(body: Record<string, unknown>, creating: boolean) {
+function mutationFromBody(
+  body: Record<string, unknown>,
+  creating: boolean,
+  existingDetails: Record<string, unknown> = {},
+) {
   const mutation: Record<string, unknown> = {};
 
   if (creating || Object.hasOwn(body, "item_type")) {
     if (typeof body.item_type !== "string" || !ITEM_TYPES.has(body.item_type)) {
-      throw new Error("item_type must be calendar, task, shopping, meal, or note.");
+      throw new Error("item_type is not a supported Family Planner category.");
     }
     mutation.item_type = body.item_type;
   }
@@ -96,6 +106,8 @@ function mutationFromBody(body: Record<string, unknown>, creating: boolean) {
     mutation.title = cleanText(body.title, "title");
   }
 
+  const details: Record<string, unknown> = { ...existingDetails };
+  let detailsChanged = false;
   if (Object.hasOwn(body, "details")) {
     if (
       body.details === null ||
@@ -104,10 +116,33 @@ function mutationFromBody(body: Record<string, unknown>, creating: boolean) {
     ) {
       throw new Error("details must be a JSON object.");
     }
-    mutation.details = body.details;
-  } else if (creating) {
-    mutation.details = {};
+    Object.assign(details, body.details);
+    detailsChanged = true;
   }
+
+  const detailFields = [
+    "recurrence", "recurrence_days", "reminder_minutes", "steps", "time",
+    "location", "amount", "autopay", "items", "notes", "text", "category", "quantity",
+  ];
+  for (const field of detailFields) {
+    if (Object.hasOwn(body, field)) {
+      details[field] = body[field];
+      detailsChanged = true;
+    }
+  }
+  if (Object.hasOwn(details, "recurrence")) {
+    const allowedRecurrence = new Set(["", "daily", "weekdays", "weekly", "monthly", "quarterly", "yearly"]);
+    if (typeof details.recurrence !== "string" || !allowedRecurrence.has(details.recurrence)) {
+      throw new Error("recurrence must be daily, weekdays, weekly, monthly, quarterly, yearly, or empty.");
+    }
+  }
+  if (Object.hasOwn(details, "steps") && (!Array.isArray(details.steps) || details.steps.some(step => typeof step !== "string"))) {
+    throw new Error("steps must be a list of checklist text.");
+  }
+  if (Object.hasOwn(details, "items") && !Array.isArray(details.items)) {
+    throw new Error("items must be a list.");
+  }
+  if (creating || detailsChanged) mutation.details = details;
 
   if (Object.hasOwn(body, "status")) {
     if (typeof body.status !== "string" || !STATUSES.has(body.status)) {
@@ -180,6 +215,17 @@ function secureEqual(left: string, right: string) {
     difference |= leftBytes[index] ^ rightBytes[index];
   }
   return difference === 0;
+}
+
+function familyToday() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = (type: string) => parts.find(part => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
 async function verifyGoogleIdentity(accessToken: string) {
@@ -282,7 +328,7 @@ Deno.serve(async (request: Request) => {
   const operation = typeof body.operation === "string" ? body.operation : "";
   if (!OPERATIONS.has(operation)) {
     return respond(400, {
-      error: "operation must be list, create, update, complete, cancel, undo, or history.",
+      error: "operation must be list, create, update, complete, cancel, undo, history, skip, pause, or resume.",
     });
   }
 
@@ -419,13 +465,43 @@ Deno.serve(async (request: Request) => {
       return respond(400, { error: "A valid item_id is required for this operation." });
     }
 
+    const { data: currentItem, error: currentItemError } = await supabase
+      .from("planner_items")
+      .select(ITEM_SELECT)
+      .eq("household_id", FAMILY_HOUSEHOLD_ID)
+      .eq("id", itemId)
+      .maybeSingle();
+    if (currentItemError) throw currentItemError;
+    if (!currentItem) {
+      return respond(404, { error: "No matching family planner item was found." });
+    }
+
     let mutation: Record<string, unknown>;
     if (operation === "complete") {
-      mutation = { status: "completed", updated_via: "chatgpt" };
+      const currentDetails = (currentItem.details ?? {}) as Record<string, unknown>;
+      if (currentItem.item_type === "routine" || currentDetails.recurrence) {
+        const completedDates = new Set(Array.isArray(currentDetails.completed_dates) ? currentDetails.completed_dates : []);
+        completedDates.add(familyToday());
+        mutation = {
+          status: "active",
+          details: { ...currentDetails, completed_dates: [...completedDates] },
+          updated_via: "chatgpt",
+        };
+      } else {
+        mutation = { status: "completed", updated_via: "chatgpt" };
+      }
     } else if (operation === "cancel") {
       mutation = { status: "cancelled", updated_via: "chatgpt" };
+    } else if (operation === "skip") {
+      const currentDetails = (currentItem.details ?? {}) as Record<string, unknown>;
+      const skippedDates = new Set(Array.isArray(currentDetails.skipped_dates) ? currentDetails.skipped_dates : []);
+      skippedDates.add(familyToday());
+      mutation = { details: { ...currentDetails, skipped_dates: [...skippedDates] }, updated_via: "chatgpt" };
+    } else if (operation === "pause" || operation === "resume") {
+      const currentDetails = (currentItem.details ?? {}) as Record<string, unknown>;
+      mutation = { details: { ...currentDetails, paused: operation === "pause" }, updated_via: "chatgpt" };
     } else {
-      mutation = mutationFromBody(body, false);
+      mutation = mutationFromBody(body, false, (currentItem.details ?? {}) as Record<string, unknown>);
       if (Object.keys(mutation).length === 1) {
         return respond(400, { error: "Include at least one field to update." });
       }
@@ -447,6 +523,12 @@ Deno.serve(async (request: Request) => {
       ? "Completed"
       : operation === "cancel"
       ? "Cancelled"
+      : operation === "skip"
+      ? "Skipped today for"
+      : operation === "pause"
+      ? "Paused"
+      : operation === "resume"
+      ? "Resumed"
       : "Updated";
     return respond(200, { ok: true, message: `${verb} ${data.title}.`, item: data });
   } catch (error) {
@@ -462,3 +544,4 @@ Deno.serve(async (request: Request) => {
     return respond(500, { error: "The planner could not save that change. Please try again." });
   }
 });
+
