@@ -179,6 +179,11 @@ const signedInAs = document.querySelector('#signedInAs');
 const liveStatus = document.querySelector('#liveStatus');
 const liveDot = document.querySelector('#liveDot');
 const toast = document.querySelector('#toast');
+const editDialog = document.querySelector('#editDialog');
+const editItemForm = document.querySelector('#editItemForm');
+const editItemId = document.querySelector('#editItemId');
+const editDialogTitle = document.querySelector('#editDialogTitle');
+const editFields = document.querySelector('#editFields');
 const calendarView = document.querySelector('#calendarView');
 const calendarClose = document.querySelector('#calendarClose');
 const calendarToday = document.querySelector('#calendarToday');
@@ -240,6 +245,14 @@ function cleanDateTime(value) {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function toLocalDateTimeValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
 }
 
 function formatDateTime(value) {
@@ -442,6 +455,7 @@ function renderItem(item) {
         ${specialBody}
       </div>
       <div class="item-actions">
+        <button class="mini-button edit-button" type="button" data-edit-id="${item.id}">Edit</button>
         ${completable
           ? `<button class="mini-button" type="button" data-action="${completed ? 'reopen' : 'complete'}" data-id="${item.id}">${completed ? 'Reopen' : 'Done'}</button>`
           : ''}
@@ -514,6 +528,7 @@ function renderTodayPanel() {
           <strong>${escapeHtml(item.title)}</strong>
           ${item.assignee ? `<small>${escapeHtml(item.assignee)}</small>` : ''}
           ${item.item_type === 'routine' ? renderSpecialBody(item) : ''}
+          <button class="mini-button today-edit" type="button" data-edit-id="${item.id}">Edit</button>
           ${['task', 'reminder', 'maintenance', 'bill'].includes(item.item_type)
             ? `<button class="mini-button today-done" type="button" data-action="${item.status === 'completed' ? 'reopen' : 'complete'}" data-id="${item.id}">${item.status === 'completed' ? 'Reopen' : 'Mark done'}</button>`
             : ''}
@@ -563,7 +578,7 @@ function renderCalendarDayPanel(calendarItems) {
       <article class="calendar-day-entry ${item.status === 'completed' ? 'is-complete' : ''}">
         <div class="calendar-day-entry-topline">
           <span class="calendar-type-badge ${item.item_type}">${itemType}</span>
-          ${action}
+          <span class="calendar-entry-actions"><button class="calendar-entry-action" type="button" data-edit-id="${item.id}">Edit</button>${action}</span>
         </div>
         <strong>${escapeHtml(item.title)}</strong>
         <small>${escapeHtml(calendarItemMeta(item))}</small>
@@ -883,6 +898,100 @@ async function updatePlannerItem(action, id, button) {
   await loadPlanner({ quiet: true });
 }
 
+function editFieldValue(item, name) {
+  if (name === 'title') return item.title || '';
+  if (name === 'assignee') return item.assignee || '';
+  if (name === 'starts_at' || name === 'due_at') return toLocalDateTimeValue(item[name]);
+  if (name === 'planned_for') return item.planned_for || '';
+  if (name === 'steps') return routineSteps(item).join('\n');
+  if (name === 'items') return normalizedListItems(item).map(entry => entry.text).join('\n');
+  return item.details?.[name] ?? '';
+}
+
+function renderEditField(field, item) {
+  const value = String(editFieldValue(item, field.name));
+  const attributes = `${field.required ? ' required' : ''}${field.step ? ` step="${field.step}"` : ''}`;
+  if (field.textarea) {
+    return `<label><span>${escapeHtml(field.label)}</span><textarea name="${field.name}" placeholder="${escapeHtml(field.placeholder || '')}"${attributes}>${escapeHtml(value)}</textarea></label>`;
+  }
+  if (field.type === 'select') {
+    return `<label><span>${escapeHtml(field.label)}</span><select name="${field.name}"${attributes}>${field.options.map(([optionValue, optionLabel]) =>
+      `<option value="${escapeHtml(optionValue)}"${String(optionValue) === value ? ' selected' : ''}>${escapeHtml(optionLabel)}</option>`).join('')}</select></label>`;
+  }
+  return `<label><span>${escapeHtml(field.label)}</span><input name="${field.name}" type="${field.type || 'text'}" value="${escapeHtml(value)}" placeholder="${escapeHtml(field.placeholder || '')}"${attributes}></label>`;
+}
+
+function openEditDialog(id) {
+  const item = plannerItems.find(candidate => candidate.id === id);
+  const config = expandedSectionConfigs.find(candidate => candidate.key === item?.item_type);
+  if (!item || !config) return;
+  editItemId.value = item.id;
+  editDialogTitle.textContent = `Edit ${config.title}`;
+  editFields.innerHTML = `${config.fields.map(field => renderEditField(field, item)).join('')}
+    <label><span>Status</span><select name="status">
+      <option value="active"${item.status === 'active' ? ' selected' : ''}>Active</option>
+      <option value="completed"${item.status === 'completed' ? ' selected' : ''}>Completed</option>
+    </select></label>`;
+  editDialog.showModal();
+  editFields.querySelector('input:not([type="hidden"]), textarea, select')?.focus();
+}
+
+function editMutation(item, formData) {
+  const value = name => String(formData.get(name) || '').trim();
+  const details = { ...(item.details || {}) };
+  const mutation = {
+    title: value('title'),
+    status: value('status') || 'active',
+    updated_via: 'website',
+    details,
+  };
+  if ('assignee' in item || formData.has('assignee')) mutation.assignee = value('assignee') || null;
+  if (formData.has('starts_at')) mutation.starts_at = cleanDateTime(formData.get('starts_at'));
+  if (formData.has('due_at')) mutation.due_at = cleanDateTime(formData.get('due_at'));
+  if (formData.has('planned_for')) mutation.planned_for = value('planned_for') || null;
+
+  ['notes', 'text', 'category', 'quantity', 'recurrence', 'time', 'location', 'amount', 'autopay'].forEach(name => {
+    if (formData.has(name)) details[name] = value(name);
+  });
+  if (formData.has('steps')) {
+    details.steps = value('steps').split(/\r?\n/).map(step => step.trim()).filter(Boolean);
+  }
+  if (formData.has('items')) {
+    const existing = new Map(normalizedListItems(item).map(entry => [entry.text.trim().toLowerCase(), entry]));
+    details.items = value('items').split(/\r?\n/).map(text => text.trim()).filter(Boolean).map(text => ({
+      text,
+      done: existing.get(text.toLowerCase())?.done || false,
+    }));
+  }
+  return mutation;
+}
+
+editItemForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!currentUser) return;
+  const item = plannerItems.find(candidate => candidate.id === editItemId.value);
+  if (!item) return;
+  const submitButton = editItemForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  const { data, error } = await plannerDb.from('planner_items')
+    .update(editMutation(item, new FormData(editItemForm)))
+    .eq('id', item.id)
+    .select('id')
+    .maybeSingle();
+  submitButton.disabled = false;
+  if (error || !data) {
+    showToast('Those edits could not be saved.', true);
+    return;
+  }
+  editDialog.close();
+  showToast('Your changes were saved for both of you.');
+  await loadPlanner({ quiet: true });
+});
+
+editDialog.addEventListener('click', event => {
+  if (event.target.closest('[data-edit-cancel]')) editDialog.close();
+});
+
 async function saveItemDetails(item, details, button) {
   button.disabled = true;
   const { error } = await plannerDb.from('planner_items')
@@ -959,6 +1068,8 @@ async function undoLatestWebsiteChange(button) {
 }
 
 plannerGrid.addEventListener('click', async event => {
+  const editButton = event.target.closest('button[data-edit-id]');
+  if (editButton) return openEditDialog(editButton.dataset.editId);
   const routineStep = event.target.closest('button[data-routine-step]');
   if (routineStep) return toggleRoutineStep(routineStep);
   const listItem = event.target.closest('button[data-list-index]');
@@ -971,6 +1082,8 @@ plannerGrid.addEventListener('click', async event => {
 });
 
 todayPanel.addEventListener('click', async event => {
+  const editButton = event.target.closest('button[data-edit-id]');
+  if (editButton) return openEditDialog(editButton.dataset.editId);
   const routineStep = event.target.closest('button[data-routine-step]');
   if (routineStep) return toggleRoutineStep(routineStep);
   const button = event.target.closest('button[data-action]');
@@ -989,6 +1102,8 @@ calendarMonthGrid.addEventListener('click', event => {
 });
 
 calendarDayItems.addEventListener('click', async event => {
+  const editButton = event.target.closest('button[data-edit-id]');
+  if (editButton) return openEditDialog(editButton.dataset.editId);
   const button = event.target.closest('button[data-calendar-action]');
   if (!button) return;
   await updatePlannerItem(button.dataset.calendarAction, button.dataset.id, button);
