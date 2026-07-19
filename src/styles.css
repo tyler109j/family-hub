@@ -29,6 +29,7 @@ body {
 button,
 input,
 textarea,
+select,
 summary { font: inherit; }
 
 button,
@@ -37,6 +38,7 @@ summary { -webkit-tap-highlight-color: transparent; }
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
+select:focus-visible,
 summary:focus-visible,
 a:focus-visible {
   outline: 3px solid rgba(52, 107, 80, .28);
@@ -254,7 +256,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -270,6 +273,8 @@ textarea {
   min-height: 70px;
   resize: vertical;
 }
+
+select { min-height: 41px; }
 
 #dashboard { margin-top: 28px; }
 
@@ -315,9 +320,52 @@ textarea {
   box-shadow: 0 0 0 4px rgba(91, 163, 109, .14);
 }
 
+.today-panel {
+  margin-bottom: 16px;
+  padding: 20px;
+  border: 1px solid rgba(221, 227, 219, .9);
+  border-radius: 22px;
+  background: linear-gradient(110deg, rgba(255, 253, 248, .98), rgba(233, 242, 231, .96));
+  box-shadow: 0 10px 30px rgba(43, 77, 57, .06);
+}
+
+.today-heading,
+.today-item-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.today-heading { margin-bottom: 14px; }
+.today-heading h3 { margin: 5px 0 0; font: 700 27px/1.1 Georgia, serif; }
+.today-heading > span { color: var(--green-700); font-size: 12px; font-weight: 800; }
+
+.today-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.today-item {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, .8);
+}
+
+.today-item.overdue { border-color: #e4b6ad; background: #fff7f4; }
+.today-item.done { opacity: .68; }
+.today-item > strong { display: block; margin-top: 10px; font-size: 13px; }
+.today-item > small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+.today-item-topline small { color: var(--muted); font-size: 10px; }
+.today-done { width: 100%; margin-top: 10px; }
+.today-empty { margin: 0; color: var(--muted); font-size: 13px; }
+
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 12px;
   margin-bottom: 16px;
 }
@@ -446,6 +494,44 @@ textarea {
   gap: 3px;
 }
 
+.checklist {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.checklist-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 7px;
+  border: 1px solid #e2e7e1;
+  border-radius: 9px;
+  background: white;
+  color: var(--ink);
+  text-align: left;
+}
+
+.checklist-row span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #b8c5bc;
+  border-radius: 6px;
+  color: white;
+  font-size: 11px;
+}
+
+.checklist-row strong { min-width: 0; font-size: 11px; overflow-wrap: anywhere; }
+.checklist-row.checked { background: var(--green-100); color: #68766f; }
+.checklist-row.checked span { border-color: var(--green-700); background: var(--green-700); }
+.checklist-row.checked strong { text-decoration: line-through; }
+.checklist-row:hover { transform: none; box-shadow: none; border-color: #b8c9bd; }
+
 .mini-button,
 .text-button {
   min-height: 30px;
@@ -473,6 +559,9 @@ textarea {
 }
 
 .activity-list { display: grid; }
+
+.activity-tools { display: flex; align-items: center; gap: 7px; }
+.undo-button { min-height: 29px; padding: 5px 8px; background: #f1eadc; color: #705d38; font-size: 9px; }
 
 .activity-item {
   display: grid;
@@ -633,6 +722,8 @@ body.calendar-open { overflow: hidden; }
 .event-dot { background: var(--green-500); }
 .task-dot { background: #ca9b48; }
 .meal-dot { background: #8d75b5; }
+.routine-dot { background: #4779a7; }
+.reminder-dot { background: #c86666; }
 
 .calendar-layout {
   display: grid;
@@ -751,6 +842,11 @@ body.calendar-open { overflow: hidden; }
 
 .calendar-chip.task { background: #f7ead2; color: #79551b; }
 .calendar-chip.meal { background: #eee8f7; color: #5d4c7a; }
+.calendar-chip.routine { background: #e1edf7; color: #315d82; }
+.calendar-chip.reminder { background: #fae5e2; color: #884a43; }
+.calendar-chip.bill { background: #fff0cf; color: #75591d; }
+.calendar-chip.appointment,
+.calendar-chip.activity { background: #e6edf8; color: #425f89; }
 .calendar-chip.is-complete { opacity: .56; }
 .calendar-chip.is-complete strong { text-decoration: line-through; }
 
@@ -821,6 +917,11 @@ body.calendar-open { overflow: hidden; }
 
 .calendar-type-badge.task { background: #f7ead2; color: #79551b; }
 .calendar-type-badge.meal { background: #eee8f7; color: #5d4c7a; }
+.calendar-type-badge.routine { background: #e1edf7; color: #315d82; }
+.calendar-type-badge.reminder { background: #fae5e2; color: #884a43; }
+.calendar-type-badge.bill { background: #fff0cf; color: #75591d; }
+.calendar-type-badge.appointment,
+.calendar-type-badge.activity { background: #e6edf8; color: #425f89; }
 
 .calendar-day-entry > strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
 .calendar-day-entry.is-complete > strong { color: #869189; text-decoration: line-through; }
@@ -980,6 +1081,7 @@ body.calendar-open { overflow: hidden; }
   .hero::after { right: -150px; }
   .profile { max-width: 520px; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary-grid { grid-template-columns: repeat(3, 1fr); }
   .calendar-layout { grid-template-columns: 1fr; }
   .calendar-day-panel { position: static; }
 }
@@ -991,6 +1093,8 @@ body.calendar-open { overflow: hidden; }
   .hero-pills { gap: 6px; }
   .dashboard-bar { align-items: start; flex-direction: column; }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .today-panel { padding: 16px; }
+  .today-list { grid-template-columns: 1fr; }
   .grid { grid-template-columns: 1fr; }
   .assistant-banner { align-items: start; flex-direction: column; padding: 24px 21px; }
   .activity-card { order: 6; }
@@ -1021,3 +1125,4 @@ body.calendar-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
+
