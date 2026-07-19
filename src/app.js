@@ -104,6 +104,7 @@ const expandedSectionConfigs = [
       { name: 'assignee', label: 'Who', placeholder: 'Tyler, Kayla, or both' },
       { name: 'time', label: 'Time', type: 'time', value: '21:00' },
       { name: 'recurrence', label: 'Repeats', type: 'select', options: recurrenceOptions('daily') },
+      { name: 'end_date', label: 'Ends', type: 'date' },
       { name: 'steps', label: 'Checklist', placeholder: 'Brush teeth\nSet alarm\nLay out clothes', textarea: true, required: true },
     ],
   },
@@ -304,6 +305,7 @@ function itemOccursOnDate(item, dateKey) {
   if (!scheduledTypes.has(item.item_type) || item.status === 'cancelled' || item.details?.paused) return false;
   const baseKey = itemBaseDate(item);
   if (!baseKey || dateKey < baseKey) return false;
+  if (item.details?.end_date && dateKey > item.details.end_date) return false;
   if ((item.details?.skipped_dates || []).includes(dateKey)) return false;
   if ((item.details?.completed_dates || []).includes(dateKey)) return false;
   const recurrence = item.details?.recurrence || '';
@@ -999,7 +1001,7 @@ function editMutation(item, formData) {
   if (formData.has('due_at')) mutation.due_at = cleanDateTime(formData.get('due_at'));
   if (formData.has('planned_for')) mutation.planned_for = value('planned_for') || null;
 
-  ['notes', 'text', 'category', 'quantity', 'recurrence', 'time', 'location', 'amount', 'autopay'].forEach(name => {
+  ['notes', 'text', 'category', 'quantity', 'recurrence', 'time', 'end_date', 'location', 'amount', 'autopay'].forEach(name => {
     if (formData.has(name)) details[name] = value(name);
   });
   if (formData.has('steps')) {
