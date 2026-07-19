@@ -11,13 +11,10 @@ paths:
       operationId: familyPlannerCommand
       summary: Read or update the shared family planner
       description: >-
-        Use this for calendar events, tasks, routines, reminders, appointments,
-        shopping, meals, home or vehicle maintenance, bills, family activities,
-        shared lists, notes, recent activity, and undo. Dates and relative-time
-        interpretations use America/New_York. If the user's words could reasonably
-        mean more than one item type, ask one short clarifying question before saving.
-        Before updating, completing, skipping, pausing, resuming, or cancelling an
-        item when its ID is unknown, call list to locate the correct item.
+        Use for events, tasks, routines, reminders, appointments, shopping, meals,
+        maintenance, bills, activities, lists, notes, history, and undo. Use
+        America/New_York. Ask one brief question if the type is unclear. List before
+        changing an existing item when its ID is unknown.
       security:
         - familyAssistantKey: []
       requestBody:
