@@ -144,8 +144,8 @@ components:
         autopay:
           type: string
           enum:
-            - yes
-            - no
+            - 'yes'
+            - 'no'
             - ''
           description: Whether a bill is paid automatically.
         notes:
