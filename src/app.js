@@ -666,10 +666,36 @@ function syncCalendarRoute() {
   calendarWasOpen = open;
 }
 
+function renderFeedbackCard() {
+  const requests = plannerItems.filter(item => item.item_type === 'note' && item.details?.kind === 'planner_feedback');
+  return `
+    <article class="card feedback-card">
+      <div class="card-heading">
+        <div>
+          <p class="card-eyebrow">Help shape this planner</p>
+          <h3>Planner feedback</h3>
+        </div>
+        <span class="card-count">${requests.length}</span>
+      </div>
+      <p class="feedback-intro">Tell us what you want added, changed, or made easier.</p>
+      <form class="feedback-form">
+        <label>
+          <span>What should we improve?</span>
+          <textarea name="request" placeholder="Example: Add a place to track school permission slips" required></textarea>
+        </label>
+        <button type="submit">Submit idea</button>
+      </form>
+      <div class="item-list feedback-list">
+        ${requests.length ? requests.map(renderItem).join('') : '<p class="empty-state">No requests yet. Add your first idea above.</p>'}
+      </div>
+    </article>`;
+}
+
 function renderPlanner() {
   renderSummary();
   plannerGrid.innerHTML = expandedSectionConfigs.map(config => {
-    const items = plannerItems.filter(item => item.item_type === config.key);
+    const items = plannerItems.filter(item => item.item_type === config.key &&
+      !(config.key === 'note' && item.details?.kind === 'planner_feedback'));
     return `
       <article class="card">
         <div class="card-heading">
@@ -686,7 +712,7 @@ function renderPlanner() {
           ${items.length ? items.map(renderItem).join('') : '<p class="empty-state">Nothing here yet.</p>'}
         </div>
       </article>`;
-  }).join('') + renderActivity();
+  }).join('') + renderFeedbackCard() + renderActivity();
   if (!calendarView.hidden) renderCalendarView();
 }
 
@@ -783,6 +809,29 @@ signOutButton.addEventListener('click', async () => {
 plannerGrid.addEventListener('submit', async event => {
   event.preventDefault();
   if (!currentUser) return;
+  const feedbackForm = event.target.closest('.feedback-form');
+  if (feedbackForm) {
+    const request = String(new FormData(feedbackForm).get('request') || '').trim();
+    if (!request) return;
+    const submitButton = feedbackForm.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    const { error } = await plannerDb.from('planner_items').insert({
+      item_type: 'note',
+      title: request,
+      details: { kind: 'planner_feedback', text: '' },
+      created_via: 'website',
+      updated_via: 'website',
+    });
+    submitButton.disabled = false;
+    if (error) {
+      showToast('That feedback could not be submitted.', true);
+      return;
+    }
+    feedbackForm.reset();
+    showToast('Feedback submitted and shared with both of you.');
+    await loadPlanner({ quiet: true });
+    return;
+  }
   const form = event.target.closest('.item-form');
   if (!form) return;
 
@@ -926,7 +975,7 @@ function openEditDialog(id) {
   const config = expandedSectionConfigs.find(candidate => candidate.key === item?.item_type);
   if (!item || !config) return;
   editItemId.value = item.id;
-  editDialogTitle.textContent = `Edit ${config.title}`;
+  editDialogTitle.textContent = item.details?.kind === 'planner_feedback' ? 'Edit planner feedback' : `Edit ${config.title}`;
   editFields.innerHTML = `${config.fields.map(field => renderEditField(field, item)).join('')}
     <label><span>Status</span><select name="status">
       <option value="active"${item.status === 'active' ? ' selected' : ''}>Active</option>
