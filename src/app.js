@@ -461,7 +461,106 @@ function renderActivity() {
       <div class="card-heading">
         <div>
           <p class="card-eyebrow">Who changed what</p>
-          <h3>Recent activity<…1315 tokens truncated…ay-entry ${item.status === 'completed' ? 'is-complete' : ''}">
+          <h3>Recent activity</h3>
+        </div>
+        <div class="activity-tools">
+          <span class="card-count">${activityItems.length}</span>
+          <button class="undo-button" type="button" data-undo-latest>Undo my last change</button>
+        </div>
+      </div>
+      <div class="activity-list">
+        ${rows.length ? rows.map(activity => {
+          const name = normalizeEmail(activity.actor_email) === 'kaylajilljoyce@gmail.com' ? 'Kayla' : 'Tyler';
+          const source = activity.source === 'chatgpt' ? ' via Family Assistant' : '';
+          return `
+            <div class="activity-item">
+              <span class="activity-initial">${name[0]}</span>
+              <div>
+                <strong>${escapeHtml(activity.summary)}</strong>
+                <small>${name}${source} Â· ${formatDateTime(activity.created_at)}</small>
+              </div>
+            </div>`;
+        }).join('') : '<p class="empty-state">New changes will appear here.</p>'}
+      </div>
+    </article>`;
+}
+
+function renderTodayPanel() {
+  const todayKey = localDateKey(new Date());
+  const now = new Date();
+  const todaysItems = plannerItems.filter(item => itemOccursOnDate(item, todayKey));
+  const overdue = plannerItems.filter(item =>
+    item.status === 'active' && item.due_at && new Date(item.due_at) < now && !todaysItems.some(today => today.id === item.id));
+  const visible = [...overdue, ...todaysItems].sort((left, right) => {
+    const leftTime = left.starts_at || left.due_at || `${todayKey}T${left.details?.time || '23:59'}`;
+    const rightTime = right.starts_at || right.due_at || `${todayKey}T${right.details?.time || '23:59'}`;
+    return new Date(leftTime) - new Date(rightTime);
+  });
+
+  todayPanel.innerHTML = `
+    <div class="today-heading">
+      <div><p class="card-eyebrow">Today</p><h3>${new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(now)}</h3></div>
+      <span>${visible.length} item${visible.length === 1 ? '' : 's'}</span>
+    </div>
+    <div class="today-list">
+      ${visible.length ? visible.map(item => {
+        const isOverdue = item.due_at && new Date(item.due_at) < now && localDateKey(item.due_at) !== todayKey;
+        const routineDone = item.item_type === 'routine' && routineIsComplete(item, todayKey);
+        return `<article class="today-item ${isOverdue ? 'overdue' : ''} ${routineDone ? 'done' : ''}">
+          <div class="today-item-topline">
+            <span class="calendar-type-badge ${item.item_type}">${escapeHtml(itemTypeLabel(item))}</span>
+            <small>${isOverdue ? 'Overdue Â· ' : ''}${escapeHtml(itemTime(item) || 'Any time')}</small>
+          </div>
+          <strong>${escapeHtml(item.title)}</strong>
+          ${item.assignee ? `<small>${escapeHtml(item.assignee)}</small>` : ''}
+          ${item.item_type === 'routine' ? renderSpecialBody(item) : ''}
+          ${['task', 'reminder', 'maintenance', 'bill'].includes(item.item_type)
+            ? `<button class="mini-button today-done" type="button" data-action="${item.status === 'completed' ? 'reopen' : 'complete'}" data-id="${item.id}">${item.status === 'completed' ? 'Reopen' : 'Mark done'}</button>`
+            : ''}
+        </article>`;
+      }).join('') : '<p class="today-empty">Nothing is scheduled for today. Enjoy the breathing room.</p>'}
+    </div>`;
+}
+
+function renderSummary() {
+  const active = plannerItems.filter(item => item.status === 'active');
+  const counts = [
+    ['Today', active.filter(item => itemOccursOnDate(item, localDateKey(new Date()))).length],
+    ['Open tasks', active.filter(item => item.item_type === 'task').length],
+    ['To buy', active.filter(item => item.item_type === 'shopping').length],
+    ['Active routines', active.filter(item => item.item_type === 'routine' && !item.details?.paused).length],
+    ['Reminders', active.filter(item => item.item_type === 'reminder').length],
+    ['Bills due', active.filter(item => item.item_type === 'bill').length],
+  ];
+  summary.innerHTML = counts.map(([label, count]) => `
+    <div class="summary-card">
+      <strong>${count}</strong>
+      <span>${label}</span>
+    </div>`).join('');
+  renderTodayPanel();
+}
+
+function renderCalendarDayPanel(calendarItems) {
+  const selectedDate = dateFromKey(selectedCalendarDate);
+  calendarSelectedDate.textContent = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(selectedDate);
+
+  const dayItems = calendarItems.filter(item => item.calendar_date === selectedCalendarDate);
+  calendarDayItems.innerHTML = dayItems.length ? dayItems.map(item => {
+    const itemType = itemTypeLabel(item);
+    const action = ['task', 'reminder', 'maintenance', 'bill'].includes(item.item_type)
+      ? `<button class="calendar-entry-action" type="button" data-calendar-action="${item.status === 'completed' ? 'reopen' : 'complete'}" data-id="${item.id}">${item.status === 'completed' ? 'Reopen' : 'Done'}</button>`
+      : ['calendar', 'appointment', 'activity'].includes(item.item_type)
+      ? `<button class="calendar-entry-action remove" type="button" data-calendar-action="remove" data-id="${item.id}">Remove</button>`
+      : '';
+    const body = itemBody(item);
+
+    return `
+      <article class="calendar-day-entry ${item.status === 'completed' ? 'is-complete' : ''}">
         <div class="calendar-day-entry-topline">
           <span class="calendar-type-badge ${item.item_type}">${itemType}</span>
           ${action}
@@ -980,4 +1079,3 @@ plannerDb.auth.onAuthStateChange((_event, session) => {
 plannerDb.auth.getSession().then(({ data }) => {
   if (data.session?.user) acceptSession(data.session.user);
 });
-
