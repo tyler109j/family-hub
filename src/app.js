@@ -22,7 +22,7 @@ const sectionConfigs = [
     fields: [
       { name: 'title', label: 'Event', placeholder: 'Dentist appointment', required: true },
       { name: 'starts_at', label: 'Date & time', type: 'datetime-local', required: true },
-      { name: 'notes', label: 'Notes', placeholder: 'Address, what to bring…', textarea: true },
+      { name: 'notes', label: 'Notes', placeholder: 'Address, what to bringâ€¦', textarea: true },
     ],
   },
   {
@@ -48,11 +48,11 @@ const sectionConfigs = [
   {
     key: 'meal',
     title: 'Meal plan',
-    eyebrow: 'What we’re eating',
+    eyebrow: 'What weâ€™re eating',
     fields: [
       { name: 'title', label: 'Meal', placeholder: 'Taco bowls', required: true },
       { name: 'planned_for', label: 'Day', type: 'date' },
-      { name: 'notes', label: 'Notes', placeholder: 'Prep or ingredient notes…', textarea: true },
+      { name: 'notes', label: 'Notes', placeholder: 'Prep or ingredient notesâ€¦', textarea: true },
     ],
   },
   {
@@ -61,13 +61,115 @@ const sectionConfigs = [
     eyebrow: 'Worth remembering',
     fields: [
       { name: 'title', label: 'Title', placeholder: 'School information', required: true },
-      { name: 'text', label: 'Details', placeholder: 'Write the note here…', textarea: true },
+      { name: 'text', label: 'Details', placeholder: 'Write the note hereâ€¦', textarea: true },
     ],
   },
 ];
 
+function recurrenceOptions(defaultValue = '') {
+  return [
+    ['', 'Does not repeat'],
+    ['daily', 'Every day'],
+    ['weekdays', 'Weekdays'],
+    ['weekly', 'Every week'],
+    ['monthly', 'Every month'],
+    ['quarterly', 'Every 3 months'],
+    ['yearly', 'Every year'],
+  ].map(([value, label]) => [value, label, value === defaultValue]);
+}
+
+const expandedSectionConfigs = [
+  {
+    key: 'calendar', title: 'Calendar', eyebrow: 'Where we need to be',
+    fields: [
+      { name: 'title', label: 'Event', placeholder: 'Dentist appointment', required: true },
+      { name: 'starts_at', label: 'Date & time', type: 'datetime-local', required: true },
+      { name: 'recurrence', label: 'Repeats', type: 'select', options: recurrenceOptions() },
+      { name: 'notes', label: 'Notes', placeholder: 'Address, what to bring...', textarea: true },
+    ],
+  },
+  {
+    key: 'task', title: 'Tasks & chores', eyebrow: 'What needs doing',
+    fields: [
+      { name: 'title', label: 'Task', placeholder: 'Pack school lunches', required: true },
+      { name: 'assignee', label: 'Who', placeholder: 'Tyler, Kayla, or both' },
+      { name: 'due_at', label: 'Due', type: 'datetime-local' },
+      { name: 'recurrence', label: 'Repeats', type: 'select', options: recurrenceOptions() },
+    ],
+  },
+  {
+    key: 'routine', title: 'Routines', eyebrow: 'What keeps us on track',
+    fields: [
+      { name: 'title', label: 'Routine', placeholder: 'Nighttime routine', required: true },
+      { name: 'assignee', label: 'Who', placeholder: 'Tyler, Kayla, or both' },
+      { name: 'time', label: 'Time', type: 'time', value: '21:00' },
+      { name: 'recurrence', label: 'Repeats', type: 'select', options: recurrenceOptions('daily') },
+      { name: 'steps', label: 'Checklist', placeholder: 'Brush teeth\nSet alarm\nLay out clothes', textarea: true, required: true },
+    ],
+  },
+  {
+    key: 'reminder', title: 'Reminders', eyebrow: 'Do not let us forget',
+    fields: [
+      { name: 'title', label: 'Reminder', placeholder: 'Call the pediatrician', required: true },
+      { name: 'due_at', label: 'When', type: 'datetime-local', required: true },
+      { name: 'assignee', label: 'Who', placeholder: 'Tyler, Kayla, or both' },
+      { name: 'notes', label: 'Notes', placeholder: 'Anything useful...', textarea: true },
+    ],
+  },
+  {
+    key: 'appointment', title: 'Appointments', eyebrow: 'Health and personal appointments',
+    fields: [
+      { name: 'title', label: 'Appointment', placeholder: 'Dentist', required: true },
+      { name: 'starts_at', label: 'Date & time', type: 'datetime-local', required: true },
+      { name: 'location', label: 'Location', placeholder: 'Office or address' },
+      { name: 'assignee', label: 'Who is going', placeholder: 'Tyler, Kayla, or both' },
+      { name: 'recurrence', label: 'Repeats', type: 'select', options: recurrenceOptions() },
+    ],
+  },
+  ...sectionConfigs.filter(config => ['shopping', 'meal'].includes(config.key)),
+  {
+    key: 'maintenance', title: 'Home & vehicles', eyebrow: 'Maintenance and repairs',
+    fields: [
+      { name: 'title', label: 'Job', placeholder: 'Replace HVAC filter', required: true },
+      { name: 'due_at', label: 'Due', type: 'datetime-local' },
+      { name: 'assignee', label: 'Who', placeholder: 'Tyler, Kayla, or both' },
+      { name: 'recurrence', label: 'Repeats', type: 'select', options: recurrenceOptions() },
+      { name: 'notes', label: 'Notes', placeholder: 'Part number, service company...', textarea: true },
+    ],
+  },
+  {
+    key: 'bill', title: 'Bills & subscriptions', eyebrow: 'What is coming due',
+    fields: [
+      { name: 'title', label: 'Bill', placeholder: 'Electric bill', required: true },
+      { name: 'due_at', label: 'Due', type: 'datetime-local', required: true },
+      { name: 'amount', label: 'Amount', type: 'number', step: '0.01', placeholder: '0.00' },
+      { name: 'autopay', label: 'Payment', type: 'select', options: [['', 'Not specified'], ['yes', 'Autopay'], ['no', 'Pay manually']] },
+      { name: 'recurrence', label: 'Repeats', type: 'select', options: recurrenceOptions('monthly') },
+    ],
+  },
+  {
+    key: 'activity', title: 'Family activities', eyebrow: 'School, sports, and plans',
+    fields: [
+      { name: 'title', label: 'Activity', placeholder: 'Soccer practice', required: true },
+      { name: 'starts_at', label: 'Date & time', type: 'datetime-local', required: true },
+      { name: 'assignee', label: 'Who', placeholder: 'Tyler, Kayla, or both' },
+      { name: 'location', label: 'Location', placeholder: 'Field, school, or address' },
+      { name: 'recurrence', label: 'Repeats', type: 'select', options: recurrenceOptions() },
+    ],
+  },
+  {
+    key: 'list', title: 'Shared lists', eyebrow: 'Packing, projects, and wishes',
+    fields: [
+      { name: 'title', label: 'List name', placeholder: 'Weekend packing list', required: true },
+      { name: 'items', label: 'Items', placeholder: 'Chargers\nSnacks\nSwimsuits', textarea: true, required: true },
+    ],
+  },
+  ...sectionConfigs.filter(config => config.key === 'note'),
+];
+
 const dashboard = document.querySelector('#dashboard');
 const plannerGrid = document.querySelector('#plannerGrid');
+const todayPanel = document.querySelector('#todayPanel');
 const summary = document.querySelector('#summary');
 const authMessage = document.querySelector('#authMessage');
 const authStatus = document.querySelector('#authStatus');
@@ -164,36 +266,83 @@ function formatTime(value) {
   }).format(new Date(value));
 }
 
-function calendarDateForItem(item) {
-  if (item.item_type === 'calendar' && item.starts_at) return localDateKey(item.starts_at);
-  if (item.item_type === 'task' && item.due_at) return localDateKey(item.due_at);
-  if (item.item_type === 'meal' && item.planned_for) return item.planned_for;
+const scheduledTypes = new Set(['calendar', 'task', 'meal', 'routine', 'reminder', 'appointment', 'maintenance', 'bill', 'activity']);
+
+function itemBaseDate(item) {
+  if (item.planned_for) return item.planned_for;
+  if (item.starts_at) return localDateKey(item.starts_at);
+  if (item.due_at) return localDateKey(item.due_at);
+  if (item.item_type === 'routine') return item.details?.start_date || localDateKey(new Date());
   return '';
 }
 
+function itemTime(item) {
+  if (item.starts_at) return formatTime(item.starts_at);
+  if (item.due_at) return formatTime(item.due_at);
+  if (item.details?.time) {
+    const [hour, minute] = String(item.details.time).split(':').map(Number);
+    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
+      .format(new Date(2000, 0, 1, hour || 0, minute || 0));
+  }
+  return '';
+}
+
+function itemOccursOnDate(item, dateKey) {
+  if (!scheduledTypes.has(item.item_type) || item.status === 'cancelled' || item.details?.paused) return false;
+  const baseKey = itemBaseDate(item);
+  if (!baseKey || dateKey < baseKey) return false;
+  if ((item.details?.skipped_dates || []).includes(dateKey)) return false;
+  if ((item.details?.completed_dates || []).includes(dateKey)) return false;
+  const recurrence = item.details?.recurrence || '';
+  if (!recurrence) return dateKey === baseKey;
+
+  const date = dateFromKey(dateKey);
+  const base = dateFromKey(baseKey);
+  const dayDifference = Math.round((date - base) / 86400000);
+  if (recurrence === 'daily') return true;
+  if (recurrence === 'weekdays') return date.getDay() >= 1 && date.getDay() <= 5;
+  if (recurrence === 'weekly') return dayDifference % 7 === 0;
+  if (recurrence === 'monthly') return date.getDate() === base.getDate();
+  if (recurrence === 'quarterly') {
+    const months = (date.getFullYear() - base.getFullYear()) * 12 + date.getMonth() - base.getMonth();
+    return months >= 0 && months % 3 === 0 && date.getDate() === base.getDate();
+  }
+  if (recurrence === 'yearly') return date.getMonth() === base.getMonth() && date.getDate() === base.getDate();
+  return dateKey === baseKey;
+}
+
 function calendarItemsByDate() {
-  return plannerItems
-    .map(item => ({ ...item, calendar_date: calendarDateForItem(item) }))
-    .filter(item => item.calendar_date)
-    .sort((left, right) => {
-      const leftTime = left.starts_at || left.due_at || `${left.calendar_date}T23:59:00`;
-      const rightTime = right.starts_at || right.due_at || `${right.calendar_date}T23:59:00`;
-      return new Date(leftTime) - new Date(rightTime);
+  const firstOfMonth = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1, 12);
+  const gridStart = new Date(firstOfMonth.getFullYear(), firstOfMonth.getMonth(), 1 - firstOfMonth.getDay(), 12);
+  const occurrences = [];
+  for (let offset = 0; offset < 42; offset += 1) {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + offset);
+    const dateKey = localDateKey(date);
+    plannerItems.forEach(item => {
+      if (itemOccursOnDate(item, dateKey)) occurrences.push({ ...item, calendar_date: dateKey });
     });
+  }
+  return occurrences.sort((left, right) => itemTime(left).localeCompare(itemTime(right)));
+}
+
+function itemTypeLabel(item) {
+  return ({
+    calendar: 'Event', task: 'Task', meal: 'Meal', routine: 'Routine', reminder: 'Reminder',
+    appointment: 'Appointment', maintenance: 'Maintenance', bill: 'Bill', activity: 'Activity',
+  })[item.item_type] || 'Plan';
 }
 
 function calendarItemLabel(item) {
-  if (item.item_type === 'calendar') return formatTime(item.starts_at);
-  if (item.item_type === 'task') return formatTime(item.due_at);
-  return 'Meal';
+  return itemTime(item) || itemTypeLabel(item);
 }
 
 function calendarItemMeta(item) {
-  const parts = [];
-  if (item.item_type === 'calendar') parts.push(`Event at ${formatTime(item.starts_at)}`);
-  if (item.item_type === 'task') parts.push(`Task due ${formatTime(item.due_at)}`);
-  if (item.item_type === 'meal') parts.push('Meal plan');
+  const parts = [itemTypeLabel(item)];
+  if (itemTime(item)) parts.push(itemTime(item));
   if (item.assignee) parts.push(item.assignee);
+  if (item.details?.location) parts.push(item.details.location);
+  if (item.details?.recurrence) parts.push(`Repeats ${item.details.recurrence}`);
   return parts.join(' - ');
 }
 
@@ -203,9 +352,11 @@ function renderForm(config) {
       ${config.fields.map(field => `
         <label>
           <span>${escapeHtml(field.label)}</span>
-          ${field.textarea
+          ${field.type === 'select'
+            ? `<select name="${field.name}" ${field.required ? 'required' : ''}>${field.options.map(([value, label, selected]) => `<option value="${escapeHtml(value)}" ${selected ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>`
+            : field.textarea
             ? `<textarea name="${field.name}" placeholder="${escapeHtml(field.placeholder || '')}" ${field.required ? 'required' : ''}></textarea>`
-            : `<input name="${field.name}" type="${field.type || 'text'}" placeholder="${escapeHtml(field.placeholder || '')}" ${field.required ? 'required' : ''}>`}
+            : `<input name="${field.name}" type="${field.type || 'text'}" placeholder="${escapeHtml(field.placeholder || '')}" value="${escapeHtml(field.value || '')}" ${field.step ? `step="${escapeHtml(field.step)}"` : ''} ${field.required ? 'required' : ''}>`}
         </label>`).join('')}
       <button type="submit">Add to ${escapeHtml(config.title.toLowerCase())}</button>
     </form>`;
@@ -213,12 +364,18 @@ function renderForm(config) {
 
 function itemDetails(item) {
   const parts = [];
-  if (item.item_type === 'calendar' && item.starts_at) parts.push(formatDateTime(item.starts_at));
-  if (item.item_type === 'task' && item.due_at) parts.push(`Due ${formatDateTime(item.due_at)}`);
+  if (item.starts_at) parts.push(formatDateTime(item.starts_at));
+  if (item.due_at) parts.push(`Due ${formatDateTime(item.due_at)}`);
   if (item.item_type === 'meal' && item.planned_for) parts.push(formatDate(item.planned_for));
   if (item.assignee) parts.push(item.assignee);
   if (item.details?.category) parts.push(item.details.category);
   if (item.details?.quantity) parts.push(item.details.quantity);
+  if (item.details?.location) parts.push(item.details.location);
+  if (item.details?.amount) parts.push(`$${Number(item.details.amount).toFixed(2)}`);
+  if (item.details?.autopay === 'yes') parts.push('Autopay');
+  if (item.details?.autopay === 'no') parts.push('Pay manually');
+  if (item.details?.recurrence) parts.push(`Repeats ${item.details.recurrence}`);
+  if (item.details?.paused) parts.push('Paused');
   return parts;
 }
 
@@ -226,14 +383,52 @@ function itemBody(item) {
   return item.details?.notes || item.details?.text || '';
 }
 
+function normalizedListItems(item) {
+  return (item.details?.items || []).map(entry => typeof entry === 'string'
+    ? { text: entry, done: false }
+    : { text: String(entry.text || ''), done: Boolean(entry.done) });
+}
+
+function routineSteps(item) {
+  return (item.details?.steps || []).map(step => String(step)).filter(Boolean);
+}
+
+function completedRoutineSteps(item, dateKey = localDateKey(new Date())) {
+  return new Set((item.details?.step_completions?.[dateKey] || []).map(Number));
+}
+
+function routineIsComplete(item, dateKey = localDateKey(new Date())) {
+  const steps = routineSteps(item);
+  return (item.details?.completed_dates || []).includes(dateKey) ||
+    (steps.length > 0 && completedRoutineSteps(item, dateKey).size >= steps.length);
+}
+
+function renderSpecialBody(item) {
+  if (item.item_type === 'routine') {
+    const completed = completedRoutineSteps(item);
+    return `<div class="checklist">${routineSteps(item).map((step, index) => `
+      <button type="button" class="checklist-row ${completed.has(index) ? 'checked' : ''}" data-routine-step="${index}" data-id="${item.id}">
+        <span aria-hidden="true">${completed.has(index) ? 'âœ“' : ''}</span><strong>${escapeHtml(step)}</strong>
+      </button>`).join('')}</div>`;
+  }
+  if (item.item_type === 'list') {
+    return `<div class="checklist">${normalizedListItems(item).map((entry, index) => `
+      <button type="button" class="checklist-row ${entry.done ? 'checked' : ''}" data-list-index="${index}" data-id="${item.id}">
+        <span aria-hidden="true">${entry.done ? 'âœ“' : ''}</span><strong>${escapeHtml(entry.text)}</strong>
+      </button>`).join('')}</div>`;
+  }
+  return '';
+}
+
 function renderItem(item) {
-  const completable = item.item_type === 'task' || item.item_type === 'shopping';
+  const completable = ['task', 'shopping', 'reminder', 'maintenance', 'bill'].includes(item.item_type);
   const completed = item.status === 'completed';
   const sourceLabel = item.created_via === 'chatgpt' || item.updated_via === 'chatgpt'
     ? '<span class="source-badge">Assistant</span>'
     : '';
   const details = itemDetails(item);
   const body = itemBody(item);
+  const specialBody = renderSpecialBody(item);
 
   return `
     <div class="item ${completed ? 'is-complete' : ''}">
@@ -242,12 +437,17 @@ function renderItem(item) {
           <strong>${escapeHtml(item.title)}</strong>
           ${sourceLabel}
         </div>
-        ${details.length ? `<small>${details.map(escapeHtml).join(' · ')}</small>` : ''}
+        ${details.length ? `<small>${details.map(escapeHtml).join(' Â· ')}</small>` : ''}
         ${body ? `<p>${escapeHtml(body)}</p>` : ''}
+        ${specialBody}
       </div>
       <div class="item-actions">
         ${completable
           ? `<button class="mini-button" type="button" data-action="${completed ? 'reopen' : 'complete'}" data-id="${item.id}">${completed ? 'Reopen' : 'Done'}</button>`
+          : ''}
+        ${item.item_type === 'routine'
+          ? `<button class="mini-button" type="button" data-action="${item.details?.paused ? 'resume-routine' : 'pause-routine'}" data-id="${item.id}">${item.details?.paused ? 'Resume' : 'Pause'}</button>
+             <button class="text-button" type="button" data-action="skip-routine" data-id="${item.id}">Skip today</button>`
           : ''}
         <button class="text-button" type="button" data-action="remove" data-id="${item.id}">Remove</button>
       </div>
@@ -261,63 +461,7 @@ function renderActivity() {
       <div class="card-heading">
         <div>
           <p class="card-eyebrow">Who changed what</p>
-          <h3>Recent activity</h3>
-        </div>
-        <span class="card-count">${activityItems.length}</span>
-      </div>
-      <div class="activity-list">
-        ${rows.length ? rows.map(activity => {
-          const name = normalizeEmail(activity.actor_email) === 'kaylajilljoyce@gmail.com' ? 'Kayla' : 'Tyler';
-          const source = activity.source === 'chatgpt' ? ' via Family Assistant' : '';
-          return `
-            <div class="activity-item">
-              <span class="activity-initial">${name[0]}</span>
-              <div>
-                <strong>${escapeHtml(activity.summary)}</strong>
-                <small>${name}${source} · ${formatDateTime(activity.created_at)}</small>
-              </div>
-            </div>`;
-        }).join('') : '<p class="empty-state">New changes will appear here.</p>'}
-      </div>
-    </article>`;
-}
-
-function renderSummary() {
-  const active = plannerItems.filter(item => item.status === 'active');
-  const counts = [
-    ['Upcoming', active.filter(item => item.item_type === 'calendar').length],
-    ['Open tasks', active.filter(item => item.item_type === 'task').length],
-    ['To buy', active.filter(item => item.item_type === 'shopping').length],
-    ['Meals planned', active.filter(item => item.item_type === 'meal').length],
-  ];
-  summary.innerHTML = counts.map(([label, count]) => `
-    <div class="summary-card">
-      <strong>${count}</strong>
-      <span>${label}</span>
-    </div>`).join('');
-}
-
-function renderCalendarDayPanel(calendarItems) {
-  const selectedDate = dateFromKey(selectedCalendarDate);
-  calendarSelectedDate.textContent = new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(selectedDate);
-
-  const dayItems = calendarItems.filter(item => item.calendar_date === selectedCalendarDate);
-  calendarDayItems.innerHTML = dayItems.length ? dayItems.map(item => {
-    const itemType = item.item_type === 'calendar' ? 'Event' : item.item_type === 'task' ? 'Task' : 'Meal';
-    const action = item.item_type === 'task'
-      ? `<button class="calendar-entry-action" type="button" data-calendar-action="${item.status === 'completed' ? 'reopen' : 'complete'}" data-id="${item.id}">${item.status === 'completed' ? 'Reopen' : 'Done'}</button>`
-      : item.item_type === 'calendar'
-      ? `<button class="calendar-entry-action remove" type="button" data-calendar-action="remove" data-id="${item.id}">Remove</button>`
-      : '';
-    const body = itemBody(item);
-
-    return `
-      <article class="calendar-day-entry ${item.status === 'completed' ? 'is-complete' : ''}">
+          <h3>Recent activity<…1315 tokens truncated…ay-entry ${item.status === 'completed' ? 'is-complete' : ''}">
         <div class="calendar-day-entry-topline">
           <span class="calendar-type-badge ${item.item_type}">${itemType}</span>
           ${action}
@@ -410,7 +554,7 @@ function syncCalendarRoute() {
 
 function renderPlanner() {
   renderSummary();
-  plannerGrid.innerHTML = sectionConfigs.map(config => {
+  plannerGrid.innerHTML = expandedSectionConfigs.map(config => {
     const items = plannerItems.filter(item => item.item_type === config.key);
     return `
       <article class="card">
@@ -442,7 +586,7 @@ async function loadPlanner({ quiet = false } = {}) {
       .order('updated_at', { ascending: false }),
     plannerDb
       .from('agent_activity_log')
-      .select('id,item_id,actor_email,operation,source,summary,created_at')
+      .select('id,item_id,actor_email,actor_user_id,operation,source,summary,before_state,after_state,created_at')
       .order('created_at', { ascending: false })
       .limit(25),
   ]);
@@ -474,7 +618,7 @@ function subscribeToPlanner() {
     .subscribe(status => {
       const connected = status === 'SUBSCRIBED';
       liveDot.classList.toggle('connected', connected);
-      liveStatus.textContent = connected ? 'Live updates on' : 'Connecting live updates…';
+      liveStatus.textContent = connected ? 'Live updates on' : 'Connecting live updatesâ€¦';
     });
 }
 
@@ -497,14 +641,14 @@ async function acceptSession(user) {
   dashboard.hidden = false;
   authStatus.textContent = 'Signed in';
   authMessage.textContent = `Connected as ${user.email}`;
-  signedInAs.textContent = `Shared securely between Tyler and Kayla · signed in as ${user.email}`;
+  signedInAs.textContent = `Shared securely between Tyler and Kayla Â· signed in as ${user.email}`;
   await loadPlanner();
   subscribeToPlanner();
   syncCalendarRoute();
 }
 
 googleSignIn.addEventListener('click', async () => {
-  authMessage.textContent = 'Opening Google sign-in…';
+  authMessage.textContent = 'Opening Google sign-inâ€¦';
   const redirectTo = `${location.origin}${location.pathname}`;
   const { error } = await plannerDb.auth.signInWithOAuth({
     provider: 'google',
@@ -538,22 +682,56 @@ plannerGrid.addEventListener('submit', async event => {
     updated_via: 'website',
   };
 
+  const value = name => String(formData.get(name) || '').trim();
+  const recurrence = value('recurrence');
+
   if (itemType === 'calendar') {
     row.starts_at = cleanDateTime(formData.get('starts_at'));
-    row.details = { notes: String(formData.get('notes') || '').trim() };
+    row.details = { notes: value('notes'), recurrence };
   } else if (itemType === 'task') {
-    row.assignee = String(formData.get('assignee') || '').trim() || null;
+    row.assignee = value('assignee') || null;
     row.due_at = cleanDateTime(formData.get('due_at'));
+    row.details = { recurrence };
+  } else if (itemType === 'routine') {
+    row.assignee = value('assignee') || null;
+    row.planned_for = localDateKey(new Date());
+    row.details = {
+      time: value('time') || '21:00',
+      recurrence: recurrence || 'daily',
+      steps: value('steps').split(/\r?\n/).map(step => step.trim()).filter(Boolean),
+      step_completions: {}, completed_dates: [], skipped_dates: [], paused: false,
+    };
+  } else if (itemType === 'reminder') {
+    row.due_at = cleanDateTime(formData.get('due_at'));
+    row.assignee = value('assignee') || null;
+    row.details = { notes: value('notes') };
+  } else if (itemType === 'appointment') {
+    row.starts_at = cleanDateTime(formData.get('starts_at'));
+    row.assignee = value('assignee') || null;
+    row.details = { location: value('location'), recurrence };
   } else if (itemType === 'shopping') {
     row.details = {
-      category: String(formData.get('category') || '').trim(),
-      quantity: String(formData.get('quantity') || '').trim(),
+      category: value('category'),
+      quantity: value('quantity'),
     };
   } else if (itemType === 'meal') {
-    row.planned_for = String(formData.get('planned_for') || '').trim() || null;
-    row.details = { notes: String(formData.get('notes') || '').trim() };
+    row.planned_for = value('planned_for') || null;
+    row.details = { notes: value('notes') };
+  } else if (itemType === 'maintenance') {
+    row.due_at = cleanDateTime(formData.get('due_at'));
+    row.assignee = value('assignee') || null;
+    row.details = { notes: value('notes'), recurrence };
+  } else if (itemType === 'bill') {
+    row.due_at = cleanDateTime(formData.get('due_at'));
+    row.details = { amount: value('amount'), autopay: value('autopay'), recurrence };
+  } else if (itemType === 'activity') {
+    row.starts_at = cleanDateTime(formData.get('starts_at'));
+    row.assignee = value('assignee') || null;
+    row.details = { location: value('location'), recurrence };
+  } else if (itemType === 'list') {
+    row.details = { items: value('items').split(/\r?\n/).map(text => text.trim()).filter(Boolean).map(text => ({ text, done: false })) };
   } else if (itemType === 'note') {
-    row.details = { text: String(formData.get('text') || '').trim() };
+    row.details = { text: value('text') };
   }
 
   const submitButton = form.querySelector('button[type="submit"]');
@@ -572,11 +750,28 @@ plannerGrid.addEventListener('submit', async event => {
 
 async function updatePlannerItem(action, id, button) {
   if (!currentUser) return;
-  const mutation = action === 'complete'
-    ? { status: 'completed', updated_via: 'website' }
-    : action === 'reopen'
-    ? { status: 'active', updated_via: 'website' }
-    : { status: 'cancelled', updated_via: 'website' };
+  const item = plannerItems.find(candidate => candidate.id === id);
+  if (!item) return;
+  const todayKey = localDateKey(new Date());
+  let mutation;
+  if (action === 'pause-routine' || action === 'resume-routine' || action === 'skip-routine') {
+    const details = { ...item.details };
+    if (action === 'pause-routine') details.paused = true;
+    if (action === 'resume-routine') details.paused = false;
+    if (action === 'skip-routine') details.skipped_dates = [...new Set([...(details.skipped_dates || []), todayKey])];
+    mutation = { details, updated_via: 'website' };
+  } else if (item.details?.recurrence && (action === 'complete' || action === 'reopen')) {
+    const completedDates = new Set(item.details.completed_dates || []);
+    if (action === 'complete') completedDates.add(todayKey);
+    else completedDates.delete(todayKey);
+    mutation = { details: { ...item.details, completed_dates: [...completedDates] }, status: 'active', updated_via: 'website' };
+  } else {
+    mutation = action === 'complete'
+      ? { status: 'completed', updated_via: 'website' }
+      : action === 'reopen'
+      ? { status: 'active', updated_via: 'website' }
+      : { status: 'cancelled', updated_via: 'website' };
+  }
 
   button.disabled = true;
   const { error } = await plannerDb.from('planner_items').update(mutation).eq('id', id);
@@ -585,14 +780,102 @@ async function updatePlannerItem(action, id, button) {
     showToast('That change could not be saved.', true);
     return;
   }
-  showToast(action === 'remove' ? 'Removed from the planner.' : 'Planner updated.');
+  showToast(action === 'remove' ? 'Removed from the planner.' : action === 'skip-routine' ? 'Routine skipped for today.' : 'Planner updated.');
+  await loadPlanner({ quiet: true });
+}
+
+async function saveItemDetails(item, details, button) {
+  button.disabled = true;
+  const { error } = await plannerDb.from('planner_items')
+    .update({ details, updated_via: 'website' })
+    .eq('id', item.id);
+  button.disabled = false;
+  if (error) {
+    showToast('That checklist change could not be saved.', true);
+    return;
+  }
+  await loadPlanner({ quiet: true });
+}
+
+async function toggleRoutineStep(button) {
+  const item = plannerItems.find(candidate => candidate.id === button.dataset.id);
+  if (!item) return;
+  const todayKey = localDateKey(new Date());
+  const completed = completedRoutineSteps(item, todayKey);
+  const index = Number(button.dataset.routineStep);
+  if (completed.has(index)) completed.delete(index); else completed.add(index);
+  const stepCompletions = { ...(item.details.step_completions || {}), [todayKey]: [...completed].sort((a, b) => a - b) };
+  const completedDates = new Set(item.details.completed_dates || []);
+  if (routineSteps(item).length && completed.size >= routineSteps(item).length) completedDates.add(todayKey);
+  else completedDates.delete(todayKey);
+  await saveItemDetails(item, { ...item.details, step_completions: stepCompletions, completed_dates: [...completedDates] }, button);
+}
+
+async function toggleListItem(button) {
+  const item = plannerItems.find(candidate => candidate.id === button.dataset.id);
+  if (!item) return;
+  const entries = normalizedListItems(item);
+  const index = Number(button.dataset.listIndex);
+  if (!entries[index]) return;
+  entries[index].done = !entries[index].done;
+  await saveItemDetails(item, { ...item.details, items: entries }, button);
+}
+
+async function undoLatestWebsiteChange(button) {
+  const activity = activityItems.find(entry =>
+    entry.item_id && entry.operation !== 'undo' && normalizeEmail(entry.actor_email) === normalizeEmail(currentUser?.email));
+  if (!activity) {
+    showToast('There is no recent change of yours to undo.', true);
+    return;
+  }
+  const item = plannerItems.find(candidate => candidate.id === activity.item_id);
+  if (!item) {
+    showToast('That item is no longer available to undo.', true);
+    return;
+  }
+  let mutation;
+  if (activity.operation === 'create') {
+    mutation = { status: 'cancelled', updated_via: 'undo' };
+  } else if (activity.before_state) {
+    const before = activity.before_state;
+    mutation = {
+      item_type: before.item_type, title: before.title, details: before.details || {}, status: before.status,
+      starts_at: before.starts_at, ends_at: before.ends_at, due_at: before.due_at,
+      planned_for: before.planned_for, assignee: before.assignee, updated_via: 'undo',
+    };
+  } else {
+    showToast('That change does not have enough history to undo safely.', true);
+    return;
+  }
+  button.disabled = true;
+  const query = plannerDb.from('planner_items').update(mutation).eq('id', item.id);
+  const { error } = activity.after_state?.updated_at ? await query.eq('updated_at', activity.after_state.updated_at) : await query;
+  button.disabled = false;
+  if (error) {
+    showToast('That item changed afterward, so it was not undone.', true);
+    return;
+  }
+  showToast(`Undid the change to ${item.title}.`);
   await loadPlanner({ quiet: true });
 }
 
 plannerGrid.addEventListener('click', async event => {
+  const routineStep = event.target.closest('button[data-routine-step]');
+  if (routineStep) return toggleRoutineStep(routineStep);
+  const listItem = event.target.closest('button[data-list-index]');
+  if (listItem) return toggleListItem(listItem);
+  const undoButton = event.target.closest('button[data-undo-latest]');
+  if (undoButton) return undoLatestWebsiteChange(undoButton);
   const button = event.target.closest('button[data-action]');
   if (!button) return;
   await updatePlannerItem(button.dataset.action, button.dataset.id, button);
+});
+
+todayPanel.addEventListener('click', async event => {
+  const routineStep = event.target.closest('button[data-routine-step]');
+  if (routineStep) return toggleRoutineStep(routineStep);
+  const button = event.target.closest('button[data-action]');
+  if (button) await updatePlannerItem(button.dataset.action, button.dataset.id, button);
 });
 
 calendarMonthGrid.addEventListener('click', event => {
@@ -697,3 +980,4 @@ plannerDb.auth.onAuthStateChange((_event, session) => {
 plannerDb.auth.getSession().then(({ data }) => {
   if (data.session?.user) acceptSession(data.session.user);
 });
+
