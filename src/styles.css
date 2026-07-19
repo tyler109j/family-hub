@@ -519,12 +519,21 @@ select { min-height: 41px; }
 .edit-dialog-actions { justify-content: flex-end; padding-top: 18px; border-top: 1px solid var(--line); }
 .calendar-entry-actions { display: inline-flex; align-items: center; gap: 6px; }
 .today-edit { margin-top: 10px; }
+.feedback-card { grid-column: span 2; background: linear-gradient(145deg, #fffdf8, #f1f7ef); }
+.feedback-intro { margin: -5px 0 16px; color: var(--muted); font-size: 13px; }
+.feedback-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; margin-bottom: 18px; }
+.feedback-form label { display: grid; gap: 7px; color: var(--green-900); font-size: 11px; font-weight: 800; }
+.feedback-form textarea { min-height: 78px; resize: vertical; }
+.feedback-form button { min-height: 48px; }
+.feedback-list { border-top: 1px solid var(--line); padding-top: 12px; }
 
 @media (max-width: 560px) {
   .edit-dialog form { padding: 20px; }
   .edit-form-grid { grid-template-columns: 1fr; }
   .edit-form-grid label:has(textarea) { grid-column: auto; }
   .edit-dialog-actions button { flex: 1; }
+  .feedback-form { grid-template-columns: 1fr; }
+  .feedback-card { grid-column: auto; }
 }
 
 .checklist {
