@@ -51,7 +51,7 @@ async function showAuthorization(user) {
     return;
   }
 
-  message.textContent = 'Loading the connection details…';
+  message.textContent = 'Loading the connection details...';
   const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
   if (error || !data) {
     message.textContent = error?.message || 'This connection request is no longer valid. Start again from ChatGPT.';
@@ -90,7 +90,7 @@ async function initialize() {
 }
 
 googleButton.addEventListener('click', async () => {
-  message.textContent = 'Opening Google sign-in…';
+  message.textContent = 'Opening Google sign-in...';
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: cleanReturnUrl() },
@@ -106,7 +106,7 @@ loginForm.addEventListener('submit', async event => {
     message.textContent = 'That email is not approved for this family planner.';
     return;
   }
-  message.textContent = 'Signing in…';
+  message.textContent = 'Signing in...';
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     message.textContent = error.message;
@@ -117,7 +117,7 @@ loginForm.addEventListener('submit', async event => {
 
 approveButton.addEventListener('click', async () => {
   approveButton.disabled = true;
-  message.textContent = 'Connecting Family Assistant…';
+  message.textContent = 'Connecting Family Assistant...';
   const { data, error } = await supabase.auth.oauth.approveAuthorization(authorizationId);
   if (error) {
     approveButton.disabled = false;

@@ -4,6 +4,9 @@ const ALLOWED_EMAILS = new Set([
   'tyler109j@gmail.com',
   'kaylajilljoyce@gmail.com',
 ]);
+const familyTime = globalThis.FamilyTime;
+
+if (!familyTime) throw new Error('Family timezone helpers did not load.');
 
 const plannerDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
@@ -22,7 +25,7 @@ const sectionConfigs = [
     fields: [
       { name: 'title', label: 'Event', placeholder: 'Dentist appointment', required: true },
       { name: 'starts_at', label: 'Date & time', type: 'datetime-local', required: true },
-      { name: 'notes', label: 'Notes', placeholder: 'Address, what to bringâ€¦', textarea: true },
+      { name: 'notes', label: 'Notes', placeholder: 'Address, what to bring...', textarea: true },
     ],
   },
   {
@@ -48,11 +51,11 @@ const sectionConfigs = [
   {
     key: 'meal',
     title: 'Meal plan',
-    eyebrow: 'What weâ€™re eating',
+    eyebrow: "What we're eating",
     fields: [
       { name: 'title', label: 'Meal', placeholder: 'Taco bowls', required: true },
       { name: 'planned_for', label: 'Day', type: 'date' },
-      { name: 'notes', label: 'Notes', placeholder: 'Prep or ingredient notesâ€¦', textarea: true },
+      { name: 'notes', label: 'Notes', placeholder: 'Prep or ingredient notes...', textarea: true },
     ],
   },
   {
@@ -61,7 +64,7 @@ const sectionConfigs = [
     eyebrow: 'Worth remembering',
     fields: [
       { name: 'title', label: 'Title', placeholder: 'School information', required: true },
-      { name: 'text', label: 'Details', placeholder: 'Write the note hereâ€¦', textarea: true },
+      { name: 'text', label: 'Details', placeholder: 'Write the note here...', textarea: true },
     ],
   },
 ];
@@ -204,7 +207,8 @@ let activityItems = [];
 let liveChannel = null;
 let reloadTimer = null;
 let toastTimer = null;
-let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+const initialFamilyDate = dateFromKey(localDateKey(new Date()));
+let calendarCursor = new Date(initialFamilyDate.getFullYear(), initialFamilyDate.getMonth(), 1, 12);
 let selectedCalendarDate = localDateKey(new Date());
 let calendarWasOpen = false;
 
@@ -219,6 +223,10 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character =>
 }[character]));
 
 function localDateKey(value) {
+  return familyTime.dateKey(value);
+}
+
+function calendarDateKey(value) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   const year = date.getFullYear();
@@ -243,41 +251,23 @@ function showToast(message, isError = false) {
 }
 
 function cleanDateTime(value) {
-  if (!value) return null;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  return familyTime.fromInputValue(value);
 }
 
 function toLocalDateTimeValue(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const offset = date.getTimezoneOffset();
-  return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
+  return familyTime.toInputValue(value);
 }
 
 function formatDateTime(value) {
-  if (!value) return '';
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
+  return familyTime.formatDateTime(value);
 }
 
 function formatDate(value) {
-  if (!value) return '';
-  const [year, month, day] = value.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-  }).format(new Date(year, month - 1, day));
+  return familyTime.formatDateKey(value);
 }
 
 function formatTime(value) {
-  if (!value) return '';
-  return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value));
+  return familyTime.formatTime(value);
 }
 
 const scheduledTypes = new Set(['calendar', 'task', 'meal', 'routine', 'reminder', 'appointment', 'maintenance', 'bill', 'activity']);
@@ -293,11 +283,7 @@ function itemBaseDate(item) {
 function itemTime(item) {
   if (item.starts_at) return formatTime(item.starts_at);
   if (item.due_at) return formatTime(item.due_at);
-  if (item.details?.time) {
-    const [hour, minute] = String(item.details.time).split(':').map(Number);
-    return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' })
-      .format(new Date(2000, 0, 1, hour || 0, minute || 0));
-  }
+  if (item.details?.time) return familyTime.formatWallTime(item.details.time);
   return '';
 }
 
@@ -333,7 +319,7 @@ function calendarItemsByDate() {
   for (let offset = 0; offset < 42; offset += 1) {
     const date = new Date(gridStart);
     date.setDate(gridStart.getDate() + offset);
-    const dateKey = localDateKey(date);
+    const dateKey = calendarDateKey(date);
     plannerItems.forEach(item => {
       if (itemOccursOnDate(item, dateKey)) occurrences.push({ ...item, calendar_date: dateKey });
     });
@@ -373,7 +359,7 @@ function renderForm(config) {
             ? `<textarea name="${field.name}" placeholder="${escapeHtml(field.placeholder || '')}" ${field.required ? 'required' : ''}></textarea>`
             : `<input name="${field.name}" type="${field.type || 'text'}" placeholder="${escapeHtml(field.placeholder || '')}" value="${escapeHtml(field.value || '')}" ${field.step ? `step="${escapeHtml(field.step)}"` : ''} ${field.required ? 'required' : ''}>`}
         </label>`).join('')}
-      <button type="submit">Add to ${escapeHtml(config.title.toLowerCase())}</button>
+      <button type="submit">Save to planner</button>
     </form>`;
 }
 
@@ -423,13 +409,13 @@ function renderSpecialBody(item) {
     const completed = completedRoutineSteps(item);
     return `<div class="checklist">${routineSteps(item).map((step, index) => `
       <button type="button" class="checklist-row ${completed.has(index) ? 'checked' : ''}" data-routine-step="${index}" data-id="${item.id}">
-        <span aria-hidden="true">${completed.has(index) ? 'âœ“' : ''}</span><strong>${escapeHtml(step)}</strong>
+        <span aria-hidden="true">${completed.has(index) ? 'X' : ''}</span><strong>${escapeHtml(step)}</strong>
       </button>`).join('')}</div>`;
   }
   if (item.item_type === 'list') {
     return `<div class="checklist">${normalizedListItems(item).map((entry, index) => `
       <button type="button" class="checklist-row ${entry.done ? 'checked' : ''}" data-list-index="${index}" data-id="${item.id}">
-        <span aria-hidden="true">${entry.done ? 'âœ“' : ''}</span><strong>${escapeHtml(entry.text)}</strong>
+        <span aria-hidden="true">${entry.done ? 'X' : ''}</span><strong>${escapeHtml(entry.text)}</strong>
       </button>`).join('')}</div>`;
   }
   return '';
@@ -452,7 +438,7 @@ function renderItem(item) {
           <strong>${escapeHtml(item.title)}</strong>
           ${sourceLabel}
         </div>
-        ${details.length ? `<small>${details.map(escapeHtml).join(' Â· ')}</small>` : ''}
+        ${details.length ? `<small>${details.map(escapeHtml).join(' - ')}</small>` : ''}
         ${body ? `<p>${escapeHtml(body)}</p>` : ''}
         ${specialBody}
       </div>
@@ -476,12 +462,12 @@ function renderActivity() {
     <article class="card activity-card">
       <div class="card-heading">
         <div>
-          <p class="card-eyebrow">Who changed what</p>
           <h3>Recent activity</h3>
+          <p class="card-eyebrow">Website and assistant changes</p>
         </div>
         <div class="activity-tools">
           <span class="card-count">${activityItems.length}</span>
-          <button class="undo-button" type="button" data-undo-latest>Undo my last change</button>
+          <button class="undo-button" type="button" data-undo-latest>Undo latest</button>
         </div>
       </div>
       <div class="activity-list">
@@ -493,7 +479,7 @@ function renderActivity() {
               <span class="activity-initial">${name[0]}</span>
               <div>
                 <strong>${escapeHtml(activity.summary)}</strong>
-                <small>${name}${source} Â· ${formatDateTime(activity.created_at)}</small>
+                <small>${name}${source} - ${formatDateTime(activity.created_at)}</small>
               </div>
             </div>`;
         }).join('') : '<p class="empty-state">New changes will appear here.</p>'}
@@ -515,7 +501,7 @@ function renderTodayPanel() {
 
   todayPanel.innerHTML = `
     <div class="today-heading">
-      <div><p class="card-eyebrow">Today</p><h3>${new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).format(now)}</h3></div>
+      <div><p class="card-eyebrow">Today</p><h3>${familyTime.formatDateKey(todayKey, { weekday: 'long', month: 'long', day: 'numeric' })}</h3></div>
       <span>${visible.length} item${visible.length === 1 ? '' : 's'}</span>
     </div>
     <div class="today-list">
@@ -525,7 +511,7 @@ function renderTodayPanel() {
         return `<article class="today-item ${isOverdue ? 'overdue' : ''} ${routineDone ? 'done' : ''}">
           <div class="today-item-topline">
             <span class="calendar-type-badge ${item.item_type}">${escapeHtml(itemTypeLabel(item))}</span>
-            <small>${isOverdue ? 'Overdue Â· ' : ''}${escapeHtml(itemTime(item) || 'Any time')}</small>
+            <small>${isOverdue ? 'Overdue - ' : ''}${escapeHtml(itemTime(item) || 'Any time')}</small>
           </div>
           <strong>${escapeHtml(item.title)}</strong>
           ${item.assignee ? `<small>${escapeHtml(item.assignee)}</small>` : ''}
@@ -535,7 +521,7 @@ function renderTodayPanel() {
             ? `<button class="mini-button today-done" type="button" data-action="${item.status === 'completed' ? 'reopen' : 'complete'}" data-id="${item.id}">${item.status === 'completed' ? 'Reopen' : 'Mark done'}</button>`
             : ''}
         </article>`;
-      }).join('') : '<p class="today-empty">Nothing is scheduled for today. Enjoy the breathing room.</p>'}
+      }).join('') : '<p class="today-empty">Nothing is scheduled for today.</p>'}
     </div>`;
 }
 
@@ -558,13 +544,12 @@ function renderSummary() {
 }
 
 function renderCalendarDayPanel(calendarItems) {
-  const selectedDate = dateFromKey(selectedCalendarDate);
-  calendarSelectedDate.textContent = new Intl.DateTimeFormat('en-US', {
+  calendarSelectedDate.textContent = familyTime.formatDateKey(selectedCalendarDate, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric',
-  }).format(selectedDate);
+  });
 
   const dayItems = calendarItems.filter(item => item.calendar_date === selectedCalendarDate);
   calendarDayItems.innerHTML = dayItems.length ? dayItems.map(item => {
@@ -604,26 +589,26 @@ function renderCalendarView() {
     return grouped;
   }, new Map());
 
-  calendarMonthLabel.textContent = new Intl.DateTimeFormat('en-US', {
+  calendarMonthLabel.textContent = familyTime.formatDateKey(`${year}-${String(month + 1).padStart(2, '0')}-01`, {
     month: 'long',
     year: 'numeric',
-  }).format(firstOfMonth);
+  });
 
   const cells = [];
   for (let offset = 0; offset < 42; offset += 1) {
     const date = new Date(gridStart);
     date.setDate(gridStart.getDate() + offset);
-    const dateKey = localDateKey(date);
+    const dateKey = calendarDateKey(date);
     const dayItems = itemsByDate.get(dateKey) || [];
     const outsideMonth = date.getMonth() !== month;
     const selected = dateKey === selectedCalendarDate;
     const isToday = dateKey === todayKey;
-    const dateLabel = new Intl.DateTimeFormat('en-US', {
+    const dateLabel = familyTime.formatDateKey(dateKey, {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
       year: 'numeric',
-    }).format(date);
+    });
 
     const visibleItems = dayItems.slice(0, 3);
     const extraCount = dayItems.length - visibleItems.length;
@@ -674,12 +659,12 @@ function renderFeedbackCard() {
     <article class="card feedback-card">
       <div class="card-heading">
         <div>
-          <p class="card-eyebrow">Help shape this planner</p>
           <h3>Planner feedback</h3>
+          <p class="card-eyebrow">Requests and improvements</p>
         </div>
         <span class="card-count">${requests.length}</span>
       </div>
-      <p class="feedback-intro">Tell us what you want added, changed, or made easier.</p>
+      <p class="feedback-intro">Leave a clear request for something you want changed or added.</p>
       <form class="feedback-form">
         <label>
           <span>What should we improve?</span>
@@ -695,6 +680,20 @@ function renderFeedbackCard() {
 
 function renderPlanner() {
   renderSummary();
+  const addLabels = {
+    calendar: 'Add event',
+    task: 'Add task',
+    routine: 'Add routine',
+    reminder: 'Add reminder',
+    appointment: 'Add appointment',
+    shopping: 'Add shopping item',
+    meal: 'Add meal',
+    maintenance: 'Add maintenance item',
+    bill: 'Add bill',
+    activity: 'Add activity',
+    list: 'Add shared list',
+    note: 'Add note',
+  };
   plannerGrid.innerHTML = expandedSectionConfigs.map(config => {
     const items = plannerItems.filter(item => item.item_type === config.key &&
       !(config.key === 'note' && item.details?.kind === 'planner_feedback'));
@@ -702,14 +701,17 @@ function renderPlanner() {
       <article class="card">
         <div class="card-heading">
           <div>
-            <p class="card-eyebrow">${escapeHtml(config.eyebrow)}</p>
             <h3>${config.key === 'calendar'
-              ? `<a class="calendar-title-link" href="#calendar">${escapeHtml(config.title)}<span>Open full calendar</span></a>`
+              ? `<a class="calendar-title-link" href="#calendar">${escapeHtml(config.title)}<span>Full view</span></a>`
               : escapeHtml(config.title)}</h3>
+            <p class="card-eyebrow">${escapeHtml(config.eyebrow)}</p>
           </div>
           <span class="card-count">${items.length}</span>
         </div>
-        ${renderForm(config)}
+        <details class="add-panel">
+          <summary>${escapeHtml(addLabels[config.key] || 'Add item')}</summary>
+          ${renderForm(config)}
+        </details>
         <div class="item-list">
           ${items.length ? items.map(renderItem).join('') : '<p class="empty-state">Nothing here yet.</p>'}
         </div>
@@ -760,7 +762,7 @@ function subscribeToPlanner() {
     .subscribe(status => {
       const connected = status === 'SUBSCRIBED';
       liveDot.classList.toggle('connected', connected);
-      liveStatus.textContent = connected ? 'Live updates on' : 'Connecting live updatesâ€¦';
+      liveStatus.textContent = connected ? 'Live' : 'Connecting...';
     });
 }
 
@@ -783,14 +785,14 @@ async function acceptSession(user) {
   dashboard.hidden = false;
   authStatus.textContent = 'Signed in';
   authMessage.textContent = `Connected as ${user.email}`;
-  signedInAs.textContent = `Shared securely between Tyler and Kayla Â· signed in as ${user.email}`;
+  signedInAs.textContent = `Signed in as ${user.email}`;
   await loadPlanner();
   subscribeToPlanner();
   syncCalendarRoute();
 }
 
 googleSignIn.addEventListener('click', async () => {
-  authMessage.textContent = 'Opening Google sign-inâ€¦';
+  authMessage.textContent = 'Opening Google sign-in...';
   const redirectTo = `${location.origin}${location.pathname}`;
   const { error } = await plannerDb.auth.signInWithOAuth({
     provider: 'google',
@@ -1212,8 +1214,8 @@ calendarNext.addEventListener('click', () => {
 });
 
 calendarToday.addEventListener('click', () => {
-  const today = new Date();
-  selectedCalendarDate = localDateKey(today);
+  selectedCalendarDate = localDateKey(new Date());
+  const today = dateFromKey(selectedCalendarDate);
   calendarCursor = new Date(today.getFullYear(), today.getMonth(), 1);
   renderCalendarView();
 });
